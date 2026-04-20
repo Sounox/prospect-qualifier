@@ -2274,3 +2274,427 @@ body {
     top: 9px;
   }
 }
+
+/* ==========================================================================
+   PREMIUM VISUAL POLISH
+   ========================================================================== */
+
+.intro-layout {
+  gap: clamp(28px, 3.3vw, 44px);
+  align-items: center;
+}
+
+.intro-content {
+  position: relative;
+  z-index: 3;
+}
+
+.intro-visual {
+  position: relative;
+  z-index: 2;
+  padding-bottom: 14px;
+}
+
+.orbit-hud {
+  left: 14px;
+  bottom: 14px;
+  width: min(178px, 58%);
+  z-index: 5;
+}
+
+.visual-badge-sent {
+  z-index: 6;
+}
+
+.badge-icon {
+  filter: saturate(0.65);
+}
+
+.choice-icon {
+  opacity: 0.9;
+  filter: saturate(0.72);
+}
+
+.screen-form {
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+}
+
+.screen-form > * {
+  position: relative;
+  z-index: 3;
+}
+
+.screen-form::before,
+.screen-form::after {
+  content: '';
+  position: fixed;
+  top: 122px;
+  bottom: 20px;
+  width: clamp(44px, 7vw, 88px);
+  border-radius: 20px;
+  border: 1px solid rgba(111, 158, 228, 0.28);
+  background:
+    radial-gradient(circle at 46% calc(14% + (var(--progress-ratio) * 72%)), rgba(128, 187, 255, 0.44), rgba(128, 187, 255, 0) 44%),
+    linear-gradient(180deg, rgba(16, 35, 76, 0.66), rgba(7, 15, 34, 0.54)),
+    repeating-linear-gradient(
+      180deg,
+      rgba(141, 186, 247, 0.16) 0,
+      rgba(141, 186, 247, 0.16) 1px,
+      transparent 1px,
+      transparent 14px
+    );
+  box-shadow:
+    inset 0 0 0 1px rgba(170, 210, 255, 0.08),
+    0 14px 34px rgba(2, 8, 22, 0.4);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.86;
+  transition: transform 420ms ease, background 420ms ease, opacity 420ms ease;
+}
+
+.screen-form::before {
+  left: max(8px, calc((100vw - 1020px) / 2 - 72px));
+  transform: translateY(calc((0.5 - var(--progress-ratio)) * 9px));
+}
+
+.screen-form::after {
+  right: max(8px, calc((100vw - 1020px) / 2 - 72px));
+  transform: translateY(calc((var(--progress-ratio) - 0.5) * 9px));
+}
+
+.progress-bar-wrapper {
+  width: min(980px, calc(100% - 28px));
+  margin: 10px auto 0;
+  border-radius: 16px;
+  border: 1px solid rgba(111, 158, 228, 0.28);
+  background:
+    radial-gradient(circle at calc(8% + (var(--progress-ratio) * 72%)) -60%, rgba(139, 195, 255, 0.34), transparent 54%),
+    linear-gradient(160deg, rgba(8, 21, 48, 0.88), rgba(6, 15, 35, 0.82));
+  box-shadow:
+    inset 0 0 0 1px rgba(157, 201, 255, 0.08),
+    0 12px 30px rgba(2, 8, 20, 0.42);
+  backdrop-filter: blur(11px);
+}
+
+.progress-bar-inner {
+  max-width: none;
+}
+
+.progress-meta {
+  margin-bottom: 2px;
+}
+
+.progress-label {
+  color: #d7e7ff;
+}
+
+.progress-pct {
+  color: #c9e4ff;
+  font-size: 14px;
+}
+
+.progress-track {
+  position: relative;
+  overflow: visible;
+  height: 11px;
+  margin-top: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(146, 193, 255, 0.26);
+  background:
+    linear-gradient(180deg, rgba(114, 156, 214, 0.25), rgba(78, 117, 176, 0.17));
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.28),
+    inset 0 -1px 0 rgba(170, 208, 255, 0.12);
+}
+
+.progress-track::before {
+  content: '';
+  position: absolute;
+  inset: 3px 12px;
+  border-radius: 999px;
+  border-top: 1px dashed rgba(185, 217, 255, 0.25);
+  opacity: 0.9;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2f7cff 0%, #57a3ff 48%, #8fcbff 100%);
+  box-shadow:
+    0 0 24px rgba(88, 160, 255, 0.42),
+    inset 0 0 8px rgba(237, 247, 255, 0.32);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: linear-gradient(112deg, rgba(255, 255, 255, 0) 22%, rgba(255, 255, 255, 0.46) 44%, rgba(255, 255, 255, 0) 66%);
+  transform: translateX(-86%);
+  animation: progressSheen 2.8s ease-in-out infinite;
+}
+
+.progress-point {
+  width: 40px;
+  height: 40px;
+  top: 50%;
+  background:
+    radial-gradient(circle at 28% 26%, rgba(171, 213, 255, 0.2), transparent 40%),
+    linear-gradient(165deg, rgba(18, 45, 88, 0.95), rgba(9, 24, 52, 0.95));
+  border: 1px solid rgba(151, 200, 255, 0.56);
+  box-shadow:
+    0 14px 24px rgba(2, 7, 18, 0.36),
+    inset 0 0 0 1px rgba(187, 221, 255, 0.16);
+}
+
+.progress-point-label {
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a8c3e8;
+  white-space: nowrap;
+}
+
+.progress-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.progress-icon-satellite {
+  width: 21px;
+  height: 21px;
+}
+
+.progress-route {
+  display: none;
+}
+
+.progress-rocket {
+  top: 50%;
+  left: 9%;
+  width: 88px;
+  height: 34px;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 9px 18px rgba(50, 147, 255, 0.38));
+  transition:
+    left 430ms cubic-bezier(0.21, 1, 0.33, 1),
+    transform 330ms ease,
+    filter 330ms ease;
+}
+
+.progress-track:hover .progress-rocket {
+  transform: translate(-50%, -54%);
+  filter: drop-shadow(0 12px 22px rgba(61, 157, 255, 0.46));
+}
+
+.rocket-svg {
+  position: absolute;
+  inset: 0;
+  width: 88px;
+  height: 34px;
+  display: block;
+}
+
+.rocket-exhaust {
+  position: absolute;
+  left: -30px;
+  top: 50%;
+  width: 34px;
+  height: 18px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.rocket-flame {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform-origin: right center;
+  border-radius: 999px 0 0 999px;
+}
+
+.rocket-flame-outer {
+  width: 30px;
+  height: 14px;
+  margin-top: -7px;
+  background: linear-gradient(90deg, rgba(255, 146, 51, 0.98), rgba(255, 206, 123, 0.66), rgba(255, 206, 123, 0));
+  filter: blur(0.55px) drop-shadow(0 0 8px rgba(255, 149, 64, 0.72));
+  animation: flameOuter 270ms ease-in-out infinite;
+}
+
+.rocket-flame-mid {
+  width: 21px;
+  height: 10px;
+  margin-top: -5px;
+  left: 5px;
+  background: linear-gradient(90deg, rgba(255, 185, 92, 0.95), rgba(255, 228, 169, 0.78), rgba(255, 228, 169, 0));
+  filter: blur(0.35px);
+  animation: flameMid 230ms ease-in-out infinite;
+}
+
+.rocket-flame-core {
+  width: 12px;
+  height: 6px;
+  margin-top: -3px;
+  left: 12px;
+  background: linear-gradient(90deg, rgba(243, 250, 255, 0.96), rgba(255, 235, 189, 0.86), rgba(255, 235, 189, 0));
+  filter: drop-shadow(0 0 4px rgba(255, 247, 222, 0.66));
+  animation: flameCore 180ms linear infinite;
+}
+
+@keyframes progressSheen {
+  0%, 40% {
+    transform: translateX(-88%);
+    opacity: 0;
+  }
+  48% {
+    opacity: 0.82;
+  }
+  78%, 100% {
+    transform: translateX(112%);
+    opacity: 0;
+  }
+}
+
+@keyframes flameOuter {
+  0%, 100% {
+    transform: scaleX(0.78);
+    opacity: 0.84;
+  }
+  50% {
+    transform: scaleX(1.18);
+    opacity: 1;
+  }
+}
+
+@keyframes flameMid {
+  0%, 100% {
+    transform: scaleX(0.75);
+    opacity: 0.78;
+  }
+  50% {
+    transform: scaleX(1.25);
+    opacity: 0.98;
+  }
+}
+
+@keyframes flameCore {
+  0%, 100% {
+    transform: scaleX(0.8);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scaleX(1.22);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1100px) {
+  .intro-layout {
+    gap: 24px;
+  }
+
+  .orbit-hud {
+    display: none;
+  }
+}
+
+@media (max-width: 800px) {
+  .screen-form::before,
+  .screen-form::after {
+    display: none;
+  }
+}
+
+@media (max-width: 540px) {
+  .progress-bar-wrapper {
+    width: calc(100% - 16px);
+    margin-top: 8px;
+    padding: 10px 12px 12px;
+    border-radius: 12px;
+  }
+
+  .progress-kicker {
+    font-size: 9px;
+    letter-spacing: 0.05em;
+  }
+
+  .progress-track {
+    height: 9px;
+    margin-top: 15px;
+  }
+
+  .progress-point {
+    width: 30px;
+    height: 30px;
+  }
+
+  .progress-point-label {
+    font-size: 8px;
+    bottom: calc(100% + 7px);
+  }
+
+  .progress-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .progress-rocket {
+    width: 64px;
+    height: 26px;
+  }
+
+  .rocket-svg {
+    width: 64px;
+    height: 26px;
+  }
+
+  .rocket-exhaust {
+    left: -22px;
+    width: 24px;
+    height: 14px;
+  }
+
+  .rocket-flame-outer {
+    width: 21px;
+    height: 10px;
+    margin-top: -5px;
+  }
+
+  .rocket-flame-mid {
+    width: 14px;
+    height: 7px;
+    margin-top: -3.5px;
+    left: 4px;
+  }
+
+  .rocket-flame-core {
+    width: 8px;
+    height: 4px;
+    margin-top: -2px;
+    left: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-fill::after,
+  .rocket-flame-outer,
+  .rocket-flame-mid,
+  .rocket-flame-core {
+    animation: none !important;
+  }
+
+  .progress-rocket {
+    transition: none;
+  }
+}
