@@ -758,7 +758,7 @@ body {
   z-index: 50;
   width: min(900px, calc(100% - 24px));
   margin: 12px auto 0;
-  padding: 12px 18px 16px;
+  padding: 12px 18px 24px;
   border-radius: 16px;
   border: 1px solid rgba(100, 160, 240, 0.22);
   background:
@@ -864,7 +864,7 @@ body {
 
 .progress-point-label {
   position: absolute;
-  bottom: calc(100% + 7px);
+  top: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%);
   font-size: 8px;
@@ -1809,6 +1809,57 @@ body {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   JOURNEY SIDE PANEL
+═══════════════════════════════════════════════════════════════════════════ */
+.journey-panel {
+  display: none; /* shown only on wide screens via media query below */
+  position: fixed;
+  right: 0;
+  top: 57px;
+  bottom: 0;
+  width: 260px;
+  pointer-events: none;
+  z-index: 3;
+  overflow: hidden;
+}
+
+.journey-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(270deg, rgba(4, 9, 22, 0.72) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+#journey-canvas {
+  width: 260px;
+  height: 100%;
+  display: block;
+}
+
+.journey-label {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6a9ac8;
+  white-space: nowrap;
+  opacity: 0.7;
+  transition: opacity 0.4s ease;
+}
+
+/* ── Show journey panel on wide screens ── */
+@media (min-width: 1200px) {
+  .journey-panel {
+    display: block;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
