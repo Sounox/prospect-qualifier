@@ -635,8 +635,11 @@ function initSpaceCanvas() {
   if (!ctx) return;
 
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const maxStars = window.matchMedia('(max-width: 540px)').matches ? 45 : 90;
+  const isMobile = window.matchMedia('(max-width: 540px)').matches;
+  const maxStars = isMobile ? 55 : 120;
   const stars = [];
+  const shootingStars = [];
+  let shootingStarTimer = 0;
 
   function resizeCanvas() {
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
@@ -650,32 +653,126 @@ function initSpaceCanvas() {
   function buildStars() {
     stars.length = 0;
     for (let i = 0; i < maxStars; i += 1) {
+      const size = Math.random();
       stars.push({
-        x: Math.random() * window.innerWidth,
-        y: Math.random() * window.innerHeight,
-        radius: Math.random() * 1.2 + 0.2,
-        alpha: Math.random() * 0.6 + 0.2,
-        speed: Math.random() * 0.16 + 0.03,
+        x:      Math.random() * window.innerWidth,
+        y:      Math.random() * window.innerHeight,
+        radius: size < 0.7 ? Math.random() * 0.8 + 0.15
+               : size < 0.92 ? Math.random() * 0.6 + 0.8
+               : Math.random() * 0.5 + 1.3,
+        alpha:  Math.random() * 0.55 + 0.2,
+        speed:  Math.random() * 0.12 + 0.02,
+        twinkleSpeed: Math.random() * 0.018 + 0.006,
+        twinklePhase: Math.random() * Math.PI * 2,
+        hue:    Math.random() > 0.8 ? 200 + Math.random() * 40 : 220,
       });
     }
   }
 
-  function draw() {
-    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-    stars.forEach((star) => {
-      ctx.beginPath();
-      ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(175, 220, 255, ${star.alpha})`;
-      ctx.fill();
+  function spawnShootingStar() {
+    const startX = Math.random() * window.innerWidth * 0.7 + window.innerWidth * 0.1;
+    const startY = Math.random() * window.innerHeight * 0.4;
+    shootingStars.push({
+      x:       startX,
+      y:       startY,
+      vx:      (Math.random() * 6 + 5) * (Math.random() > 0.5 ? 1 : -1),
+      vy:      Math.random() * 4 + 2,
+      length:  Math.random() * 80 + 60,
+      alpha:   0,
+      maxAlpha: Math.random() * 0.55 + 0.35,
+      phase:   'in',
+      life:    0,
+      maxLife: Math.random() * 40 + 30,
+    });
+  }
 
+  function draw(timestamp) {
+    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+    // Draw static + twinkling stars
+    stars.forEach((star) => {
       if (!prefersReducedMotion) {
+        star.twinklePhase += star.twinkleSpeed;
         star.y += star.speed;
-        if (star.y > window.innerHeight + 2) {
+        if (star.y > window.innerHeight + 4) {
           star.y = -4;
           star.x = Math.random() * window.innerWidth;
         }
       }
+
+      const twinkle = prefersReducedMotion ? 1 : 0.65 + 0.35 * Math.sin(star.twinklePhase);
+      const a = star.alpha * twinkle;
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${star.hue}, 70%, 90%, ${a})`;
+      ctx.fill();
+
+      // Add a subtle glow for larger stars
+      if (star.radius > 1.1 && !prefersReducedMotion) {
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.radius * 2.5, 0, Math.PI * 2);
+        const grad = ctx.createRadialGradient(
+          star.x, star.y, 0,
+          star.x, star.y, star.radius * 2.5
+        );
+        grad.addColorStop(0, `hsla(${star.hue}, 80%, 90%, ${a * 0.3})`);
+        grad.addColorStop(1, `hsla(${star.hue}, 80%, 90%, 0)`);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      }
     });
+
+    // Draw shooting stars
+    if (!prefersReducedMotion) {
+      shootingStarTimer++;
+      if (shootingStarTimer > 180 && shootingStars.length < 3) {
+        spawnShootingStar();
+        shootingStarTimer = 0;
+      }
+
+      for (let i = shootingStars.length - 1; i >= 0; i--) {
+        const s = shootingStars[i];
+        s.life++;
+        s.x += s.vx;
+        s.y += s.vy;
+
+        if (s.phase === 'in') {
+          s.alpha = Math.min(s.alpha + 0.04, s.maxAlpha);
+          if (s.alpha >= s.maxAlpha) s.phase = 'hold';
+        } else if (s.phase === 'hold' && s.life > s.maxLife * 0.6) {
+          s.phase = 'out';
+        } else if (s.phase === 'out') {
+          s.alpha -= 0.025;
+        }
+
+        if (s.alpha <= 0 || s.x < -100 || s.x > window.innerWidth + 100 || s.y > window.innerHeight + 50) {
+          shootingStars.splice(i, 1);
+          continue;
+        }
+
+        const angle = Math.atan2(s.vy, s.vx);
+        const tailX = s.x - Math.cos(angle) * s.length;
+        const tailY = s.y - Math.sin(angle) * s.length;
+
+        const grad = ctx.createLinearGradient(tailX, tailY, s.x, s.y);
+        grad.addColorStop(0, `rgba(180, 220, 255, 0)`);
+        grad.addColorStop(0.7, `rgba(200, 230, 255, ${s.alpha * 0.5})`);
+        grad.addColorStop(1, `rgba(240, 250, 255, ${s.alpha})`);
+
+        ctx.beginPath();
+        ctx.moveTo(tailX, tailY);
+        ctx.lineTo(s.x, s.y);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        // Head glow
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(240, 250, 255, ${s.alpha})`;
+        ctx.fill();
+      }
+    }
 
     if (!prefersReducedMotion) {
       state.orbitalAnimationFrame = requestAnimationFrame(draw);
@@ -684,12 +781,25 @@ function initSpaceCanvas() {
 
   resizeCanvas();
   buildStars();
-  draw();
+  if (!prefersReducedMotion) {
+    state.orbitalAnimationFrame = requestAnimationFrame(draw);
+  } else {
+    draw(0);
+  }
 
+  let resizeTimeout;
   window.addEventListener('resize', () => {
-    resizeCanvas();
-    buildStars();
-    draw();
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      if (state.orbitalAnimationFrame) cancelAnimationFrame(state.orbitalAnimationFrame);
+      resizeCanvas();
+      buildStars();
+      if (!prefersReducedMotion) {
+        state.orbitalAnimationFrame = requestAnimationFrame(draw);
+      } else {
+        draw(0);
+      }
+    }, 120);
   });
 }
 
