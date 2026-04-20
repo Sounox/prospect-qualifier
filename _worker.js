@@ -521,8 +521,14 @@ async function handleSubmit(request, env) {
       attachments,
     });
   } catch (err) {
-    console.error('[MAIL]', err.message);
-    return Response.json({ success: false, error: "Erreur lors de l'envoi. Veuillez rÃ©essayer." }, { status: 500 });
+    const raw = String(err?.message || err || 'unknown');
+    const debug = raw.replace(/[A-Za-z0-9+/=]{18,}/g, '[redacted]').slice(0, 380);
+    console.error('[MAIL]', debug);
+    return Response.json({
+      success: false,
+      error: "Erreur lors de l'envoi. Veuillez rÃ©essayer.",
+      debug,
+    }, { status: 500 });
   }
 
   return Response.json({ success: true, submissionId });
