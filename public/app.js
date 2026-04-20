@@ -1,11 +1,11 @@
-'use strict';
+﻿'use strict';
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   PROSPECT QUALIFIER — Frontend SPA
-   Gestion des étapes, validations, upload, envoi
-───────────────────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   PROSPECT QUALIFIER â€” Frontend SPA
+   Gestion des Ã©tapes, validations, upload, envoi
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-// ── Constantes ──────────────────────────────────────────────────────────────
+// â”€â”€ Constantes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const TOTAL_STEPS = 11;
 const MAX_FILE_SIZE_MB = 10;
@@ -16,16 +16,19 @@ const ALLOWED_EXTENSIONS = new Set([
   'jpg', 'jpeg', 'png', 'webp', 'svg', 'pdf', 'doc', 'docx',
 ]);
 
-// ── État de l'application ────────────────────────────────────────────────────
+// â”€â”€ Ã‰tat de l'application â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const state = {
   currentStep: 1,
   selectedFiles: [],
   orbitalAnimationFrame: null,
   journeyAnimFrame: null,
+  journeyVideoUnlockPending: false,
 };
 
-// ── Références DOM ───────────────────────────────────────────────────────────
+let checkVideoStep = () => {};
+
+// â”€â”€ RÃ©fÃ©rences DOM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const $ = (id) => document.getElementById(id);
 
@@ -59,28 +62,28 @@ const els = {
   missionCards:    document.querySelectorAll('.mission-card'),
 };
 
-// ── Initialisation ───────────────────────────────────────────────────────────
+// â”€â”€ Initialisation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function init() {
   // Timestamp de chargement de la page (anti-spam)
   els.loadTime.value = Date.now().toString();
   document.body.dataset.screen = 'intro';
 
-  // Afficher le total d'étapes
+  // Afficher le total d'Ã©tapes
   els.stepTotal.textContent = TOTAL_STEPS;
 
-  // Événements de navigation
+  // Ã‰vÃ©nements de navigation
   els.btnStart.addEventListener('click', startQuestionnaire);
   els.btnBack.addEventListener('click', goBack);
   els.btnNext.addEventListener('click', goNext);
   els.form.addEventListener('submit', handleSubmit);
 
-  // Événements upload
+  // Ã‰vÃ©nements upload
   els.uploadTrigger.addEventListener('click', () => els.fileInput.click());
   els.fileInput.addEventListener('change', onFileInputChange);
   setupDragAndDrop();
 
-  // Champs conditionnels radio (déclenchés par data-triggers)
+  // Champs conditionnels radio (dÃ©clenchÃ©s par data-triggers)
   document.querySelectorAll('.choices-grid input[type="radio"][data-triggers]').forEach((radio) => {
     radio.addEventListener('change', () => {
       const targetId = radio.getAttribute('data-triggers');
@@ -88,21 +91,21 @@ function init() {
     });
   });
 
-  // Champs conditionnels radio sur tout le groupe (pour masquer quand on change de réponse)
+  // Champs conditionnels radio sur tout le groupe (pour masquer quand on change de rÃ©ponse)
   document.querySelectorAll('.choices-grid').forEach((grid) => {
     grid.querySelectorAll('input[type="radio"]').forEach((radio) => {
       radio.addEventListener('change', () => {
-        // Masquer tous les wraps conditionnels du groupe, puis ré-afficher le bon
+        // Masquer tous les wraps conditionnels du groupe, puis rÃ©-afficher le bon
         const wrapsInStep = radio.closest('.form-step').querySelectorAll('.conditional-wrap');
         wrapsInStep.forEach((wrap) => {
-          // Ne masquer que les wraps liés au même groupe radio
+          // Ne masquer que les wraps liÃ©s au mÃªme groupe radio
           const triggeredBy = [...radio.closest('.choices-grid').querySelectorAll('input[data-triggers]')]
             .map((r) => r.getAttribute('data-triggers'));
           if (triggeredBy.includes(wrap.id)) {
             wrap.hidden = true;
           }
         });
-        // Ré-afficher si nécessaire
+        // RÃ©-afficher si nÃ©cessaire
         if (radio.dataset.triggers) {
           const wrap = $(radio.dataset.triggers);
           if (wrap) wrap.hidden = false;
@@ -126,11 +129,12 @@ function init() {
   initOrbitalExperience();
 }
 
-// ── Navigation ───────────────────────────────────────────────────────────────
+// â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function startQuestionnaire() {
   showScreen('form');
   updateProgressBar();
+  checkVideoStep();
 }
 
 function goNext() {
@@ -140,6 +144,7 @@ function goNext() {
     state.currentStep++;
     showStep(state.currentStep);
     updateProgressBar();
+    checkVideoStep();
     scrollToTop();
   }
 }
@@ -149,6 +154,7 @@ function goBack() {
     state.currentStep--;
     showStep(state.currentStep);
     updateProgressBar();
+    checkVideoStep();
     scrollToTop();
   }
 }
@@ -205,16 +211,16 @@ function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// ── Validations ──────────────────────────────────────────────────────────────
+// â”€â”€ Validations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
- * Valide l'étape courante et retourne true si valide.
- * Affiche les messages d'erreur appropriés.
+ * Valide l'Ã©tape courante et retourne true si valide.
+ * Affiche les messages d'erreur appropriÃ©s.
  */
 function validateStep(step) {
   const errEl = $(`err-${step}`);
 
-  // Masquer toute erreur précédente
+  // Masquer toute erreur prÃ©cÃ©dente
   if (errEl) errEl.hidden = true;
 
   switch (step) {
@@ -275,7 +281,7 @@ function validateTextarea(step, id) {
 }
 
 function validateUpload(step) {
-  // Step 8 : upload est optionnel, mais on vérifie les erreurs de fichiers
+  // Step 8 : upload est optionnel, mais on vÃ©rifie les erreurs de fichiers
   const errEl = $(`err-${step}`);
   // Valide toujours (upload facultatif)
   return true;
@@ -349,14 +355,14 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-// ── Champs conditionnels ──────────────────────────────────────────────────────
+// â”€â”€ Champs conditionnels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function handleConditionalRadio(groupName, targetWrapId, selectedValue) {
   const wrap = $(targetWrapId);
   if (wrap) wrap.hidden = false;
 }
 
-// ── Upload de fichiers ───────────────────────────────────────────────────────
+// â”€â”€ Upload de fichiers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function setupDragAndDrop() {
   const dropArea = els.uploadZoneInner;
@@ -384,7 +390,7 @@ function setupDragAndDrop() {
 
 function onFileInputChange(e) {
   addFiles(Array.from(e.target.files));
-  // Réinitialiser l'input pour permettre de re-sélectionner le même fichier
+  // RÃ©initialiser l'input pour permettre de re-sÃ©lectionner le mÃªme fichier
   els.fileInput.value = '';
 }
 
@@ -394,13 +400,13 @@ function addFiles(newFiles) {
 
   for (const file of newFiles) {
     if (state.selectedFiles.length >= MAX_FILES) {
-      showUploadError(`Maximum ${MAX_FILES} fichiers autorisés.`);
+      showUploadError(`Maximum ${MAX_FILES} fichiers autorisÃ©s.`);
       break;
     }
 
     const ext = getExtension(file.name);
     if (!ALLOWED_EXTENSIONS.has(ext)) {
-      showUploadError(`Type de fichier non autorisé : ${file.name} (.${ext} non accepté)`);
+      showUploadError(`Type de fichier non autorisÃ© : ${file.name} (.${ext} non acceptÃ©)`);
       continue;
     }
 
@@ -409,7 +415,7 @@ function addFiles(newFiles) {
       continue;
     }
 
-    // Éviter les doublons par nom + taille
+    // Ã‰viter les doublons par nom + taille
     const isDuplicate = state.selectedFiles.some(
       (f) => f.name === file.name && f.size === file.size
     );
@@ -449,7 +455,7 @@ function renderFileList() {
         class="file-item-remove"
         aria-label="Supprimer ${escapeHtml(file.name)}"
         data-index="${index}"
-      >×</button>
+      >Ã—</button>
     `;
     item.querySelector('.file-item-remove').addEventListener('click', () => removeFile(index));
     list.appendChild(item);
@@ -470,10 +476,10 @@ function getExtension(filename) {
 
 function getFileIcon(filename) {
   const ext = getExtension(filename);
-  if (['jpg', 'jpeg', 'png', 'webp', 'svg'].includes(ext)) return '🖼️';
-  if (ext === 'pdf') return '📄';
-  if (['doc', 'docx'].includes(ext)) return '📝';
-  return '📎';
+  if (['jpg', 'jpeg', 'png', 'webp', 'svg'].includes(ext)) return 'ðŸ–¼ï¸';
+  if (ext === 'pdf') return 'ðŸ“„';
+  if (['doc', 'docx'].includes(ext)) return 'ðŸ“';
+  return 'ðŸ“Ž';
 }
 
 function formatFileSize(bytes) {
@@ -490,7 +496,7 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-// ── Soumission ───────────────────────────────────────────────────────────────
+// â”€â”€ Soumission â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function handleSubmit(e) {
   e.preventDefault();
@@ -513,18 +519,18 @@ async function handleSubmit(e) {
       showConfirmation(result.submissionId);
     } else {
       setSubmitLoading(false);
-      showGlobalError(result.error || "Une erreur est survenue. Veuillez réessayer.");
+      showGlobalError(result.error || "Une erreur est survenue. Veuillez rÃ©essayer.");
     }
   } catch (err) {
     setSubmitLoading(false);
-    showGlobalError("Impossible d'envoyer le formulaire. Vérifiez votre connexion et réessayez.");
+    showGlobalError("Impossible d'envoyer le formulaire. VÃ©rifiez votre connexion et rÃ©essayez.");
   }
 }
 
 function buildFormData() {
   const formData = new FormData();
 
-  // Données du formulaire HTML (champs texte, radio, checkbox)
+  // DonnÃ©es du formulaire HTML (champs texte, radio, checkbox)
   const form = els.form;
 
   // Champs texte / textarea / url / email / tel / hidden
@@ -534,12 +540,12 @@ function buildFormData() {
     }
   });
 
-  // Radio sélectionnés
+  // Radio sÃ©lectionnÃ©s
   form.querySelectorAll('input[type="radio"]:checked').forEach((radio) => {
     formData.append(radio.name, radio.value);
   });
 
-  // Checkboxes sélectionnés
+  // Checkboxes sÃ©lectionnÃ©s
   const checkboxGroups = {};
   form.querySelectorAll('input[type="checkbox"]:checked').forEach((cb) => {
     if (!checkboxGroups[cb.name]) checkboxGroups[cb.name] = [];
@@ -585,13 +591,14 @@ function showGlobalError(message) {
   scrollToTop();
 }
 
-// ── Lancement ────────────────────────────────────────────────────────────────
+// â”€â”€ Lancement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function initOrbitalExperience() {
   initMissionCards();
   initIntroParallax();
   initSpaceCanvas();
-  initJourneyCanvas();
+  initJourneyCanvas();   // canvas overlay (stars + orbit)
+  initJourneyVideos();   // video background
 }
 
 function initMissionCards() {
@@ -805,7 +812,74 @@ function initSpaceCanvas() {
   });
 }
 
-// ── Journey Canvas — Photorealistic Space Launch ─────────────────────────────
+// â”€â”€ Journey Canvas â€” Photorealistic Space Launch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function initJourneyVideos() {
+  const v1 = document.getElementById('jv-1');
+  const v2 = document.getElementById('jv-2');
+  const v3 = document.getElementById('jv-3');
+  const videos = [v1, v2, v3];
+  if (!v1 || !v2 || !v3) return;
+
+  videos.forEach((video) => {
+    try { video.load(); } catch (_) {}
+  });
+
+  function getActiveVideoIndex(step) {
+    if (step <= 4) return 0;
+    if (step <= 8) return 1;
+    return 2;
+  }
+
+  function activateVideo(index) {
+    const active = videos[index];
+    if (!active) return;
+
+    videos.forEach((video, videoIndex) => {
+      video.classList.toggle('is-active', videoIndex === index);
+    });
+
+    try {
+      const playPromise = active.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {
+          if (!state.journeyVideoUnlockPending) {
+            state.journeyVideoUnlockPending = true;
+            document.addEventListener('click', () => {
+              state.journeyVideoUnlockPending = false;
+              activateVideo(index);
+            }, { once: true });
+          }
+        });
+      }
+    } catch (_) {
+      if (!state.journeyVideoUnlockPending) {
+        state.journeyVideoUnlockPending = true;
+        document.addEventListener('click', () => {
+          state.journeyVideoUnlockPending = false;
+          activateVideo(index);
+        }, { once: true });
+      }
+    }
+
+    setTimeout(() => {
+      videos.forEach((video, videoIndex) => {
+        if (videoIndex !== index) video.pause();
+      });
+    }, 1000);
+  }
+
+  checkVideoStep = function checkJourneyVideoStep() {
+    const idx = getActiveVideoIndex(state.currentStep);
+    const currentActive = videos.findIndex((video) => video.classList.contains('is-active'));
+    const activeVideo = videos[idx];
+    if (idx !== currentActive || (activeVideo && activeVideo.paused)) {
+      activateVideo(idx);
+    }
+  };
+
+  activateVideo(getActiveVideoIndex(state.currentStep));
+}
 
 function initJourneyCanvas() {
   const panel  = document.getElementById('journey-panel');
@@ -818,13 +892,13 @@ function initJourneyCanvas() {
   let H = 0;
   const ctx = canvas.getContext('2d');
 
-  /* ─── helpers ─── */
+  /* â”€â”€â”€ helpers â”€â”€â”€ */
   const cl  = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const lr  = (a, b, t)   => a + (b - a) * cl(t, 0, 1);
   const ease = t => t < .5 ? 2*t*t : -1+(4-2*t)*t;
   const sin  = Math.sin, cos = Math.cos, PI = Math.PI, rnd = Math.random;
 
-  /* ─── star field (seeded, stable across frames) ─── */
+  /* â”€â”€â”€ star field (seeded, stable across frames) â”€â”€â”€ */
   const STARS = [];
   function buildStars() {
     STARS.length = 0;
@@ -855,15 +929,15 @@ function initJourneyCanvas() {
     }
   }
 
-  /* ─── phase labels ─── */
+  /* â”€â”€â”€ phase labels â”€â”€â”€ */
   const LABELS = [
-    'Initialisation', 'Mise à feu', 'Décollage',
-    'Percée atmosphérique', 'Max-Q', 'Coupure moteur',
-    'Séparation du premier étage', 'Trajectoire orbitale',
-    'Approche satellite', 'Déploiement solaire', 'En orbite',
+    'Initialisation', 'Mise Ã  feu', 'DÃ©collage',
+    'PercÃ©e atmosphÃ©rique', 'Max-Q', 'Coupure moteur',
+    'SÃ©paration du premier Ã©tage', 'Trajectoire orbitale',
+    'Approche satellite', 'DÃ©ploiement solaire', 'En orbite',
   ];
 
-  /* ─── resize ─── */
+  /* â”€â”€â”€ resize â”€â”€â”€ */
   function resize() {
     H = panel.offsetHeight || (window.innerHeight - 57);
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -875,51 +949,17 @@ function initJourneyCanvas() {
     buildStars();
   }
 
-  /* ════════════════════════════════════════════════════
+  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      DRAWING PRIMITIVES
-  ════════════════════════════════════════════════════ */
+  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-  /* ─── Deep space background with Milky Way ─── */
-  function drawBackground(ratio) {
-    // Base void
-    ctx.fillStyle = '#010409';
+  /* â”€â”€â”€ Deep space background with Milky Way â”€â”€â”€ */
+  function drawBackground() {
+    ctx.fillStyle = 'rgba(2, 5, 14, 0.22)';
     ctx.fillRect(0, 0, W, H);
-
-    // Milky Way band (diagonal, fades in after launch)
-    const mwA = cl((ratio - 0.15) * 1.4, 0, 0.55);
-    if (mwA > 0) {
-      const mw = ctx.createLinearGradient(0, H*0.1, W, H*0.65);
-      mw.addColorStop(0,   `rgba(10, 20, 60, 0)`);
-      mw.addColorStop(0.3, `rgba(18, 35, 80, ${mwA * 0.5})`);
-      mw.addColorStop(0.5, `rgba(22, 42, 95, ${mwA})`);
-      mw.addColorStop(0.7, `rgba(18, 35, 80, ${mwA * 0.5})`);
-      mw.addColorStop(1,   `rgba(10, 20, 60, 0)`);
-      ctx.fillStyle = mw;
-      ctx.fillRect(0, 0, W, H);
-
-      // Fine star dust on the band
-      ctx.fillStyle = `rgba(200, 220, 255, ${mwA * 0.06})`;
-      for (let i = 0; i < 80; i++) {
-        const bx = (sin(i * 37.9) * 0.5 + 0.5) * W;
-        const by = (sin(i * 53.1 + 1.2) * 0.5 + 0.5) * H;
-        ctx.fillRect(bx, by, 0.6, 0.6);
-      }
-    }
-
-    // Atmosphere near Earth bottom — blue limb glow
-    const atmH = H * lr(0.38, 0.12, ratio);
-    if (atmH > 0) {
-      const atm = ctx.createLinearGradient(0, H - atmH, 0, H);
-      atm.addColorStop(0, 'rgba(10, 40, 110, 0)');
-      atm.addColorStop(0.4, `rgba(20, 80, 200, ${lr(0.28, 0.06, ratio)})`);
-      atm.addColorStop(0.75, `rgba(35, 110, 230, ${lr(0.45, 0.08, ratio)})`);
-      atm.addColorStop(1, `rgba(50, 140, 255, ${lr(0.55, 0.10, ratio)})`);
-      ctx.fillStyle = atm;
-      ctx.fillRect(0, H - atmH, W, atmH);
-    }
   }
 
-  /* ─── Star field with twinkling ─── */
+  /* Star field with twinkling */
   function drawStars(ratio, tick) {
     const depthAlpha = cl(ratio * 2.8 + 0.08, 0, 1);
     for (const s of STARS) {
@@ -957,7 +997,7 @@ function initJourneyCanvas() {
     }
   }
 
-  /* ─── Photorealistic Earth ─── */
+  /* â”€â”€â”€ Photorealistic Earth â”€â”€â”€ */
   function drawEarth(cx, cy, r, alpha, tick) {
     if (alpha < 0.01) return;
     ctx.save();
@@ -990,7 +1030,7 @@ function initJourneyCanvas() {
     ctx.arc(cx, cy, r, 0, PI * 2);
     ctx.clip();
 
-    // ── Land masses ──
+    // â”€â”€ Land masses â”€â”€
     ctx.globalAlpha = alpha * 0.88;
 
     // Africa / Europe shape
@@ -1022,7 +1062,7 @@ function initJourneyCanvas() {
     ctx.ellipse(cx + r*0.44, cy + r*0.3, r*0.12, r*0.08, 0.3, 0, PI*2);
     ctx.fill();
 
-    // ── Cloud wisps ──
+    // â”€â”€ Cloud wisps â”€â”€
     ctx.globalAlpha = alpha * 0.6;
     const cloudOff = tick * 0.00015; // very slow drift
     const cloudPath = (ox, oy, w, h, a) => {
@@ -1044,7 +1084,7 @@ function initJourneyCanvas() {
     cloudPath(r*0.45 + sin(cloudOff*1.3)*r*0.02, r*0.42, r*0.22, r*0.05, 0.4);
     cloudPath(-r*0.05+ cos(cloudOff*0.8)*r*0.03, -r*0.25, r*0.32, r*0.07, -0.3);
 
-    // ── Night side with city lights ──
+    // â”€â”€ Night side with city lights â”€â”€
     ctx.globalAlpha = alpha;
     const night = ctx.createLinearGradient(cx + r*0.2, cy - r, cx + r, cy + r*0.2);
     night.addColorStop(0,   'rgba(0,3,12,0)');
@@ -1097,7 +1137,7 @@ function initJourneyCanvas() {
     ctx.restore();
   }
 
-  /* ─── Launch pad & infrastructure ─── */
+  /* â”€â”€â”€ Launch pad & infrastructure â”€â”€â”€ */
   function drawLaunchpad(cx, earthTop, alpha) {
     if (alpha < 0.01) return;
     ctx.save();
@@ -1156,7 +1196,7 @@ function initJourneyCanvas() {
     ctx.restore();
   }
 
-  /* ─── Falcon 9 style rocket ─── */
+  /* â”€â”€â”€ Falcon 9 style rocket â”€â”€â”€ */
   function drawRocket(cx, cy, scale, alpha, exhaustIntensity, tick, ratio) {
     if (alpha < 0.01) return;
     ctx.save();
@@ -1166,7 +1206,7 @@ function initJourneyCanvas() {
 
     const S = 1; // uniform inner scale
 
-    /* ── Plume / exhaust ── */
+    /* â”€â”€ Plume / exhaust â”€â”€ */
     if (exhaustIntensity > 0.02) {
       // Outer plume bell
       const p1 = ctx.createRadialGradient(0, 42, 2, 0, 55, 38);
@@ -1204,7 +1244,7 @@ function initJourneyCanvas() {
       ctx.fill();
     }
 
-    /* ── First stage body ── */
+    /* â”€â”€ First stage body â”€â”€ */
     const bodyG = ctx.createLinearGradient(-7, -30, 7, 28);
     bodyG.addColorStop(0,   '#e8f2ff');
     bodyG.addColorStop(0.25,'#ffffff');
@@ -1228,7 +1268,7 @@ function initJourneyCanvas() {
     ctx.fillStyle = 'rgba(80, 120, 200, 0.25)';
     ctx.fillRect(-7, -2, 14, 2);
 
-    /* ── Second stage ── */
+    /* â”€â”€ Second stage â”€â”€ */
     const s2G = ctx.createLinearGradient(-5.5, -52, 5.5, -30);
     s2G.addColorStop(0, '#f0f6ff');
     s2G.addColorStop(1, '#cce0f8');
@@ -1241,7 +1281,7 @@ function initJourneyCanvas() {
     ctx.roundRect(-2.5, -52, 3, 22, 1);
     ctx.fill();
 
-    /* ── Fairing nose cone ── */
+    /* â”€â”€ Fairing nose cone â”€â”€ */
     ctx.beginPath();
     ctx.moveTo(0, -74);
     ctx.bezierCurveTo(6, -68, 5.5, -58, 5.5, -52);
@@ -1264,7 +1304,7 @@ function initJourneyCanvas() {
     ctx.closePath();
     ctx.fill();
 
-    /* ── Grid fins (deployed at ratio > 0.4) ── */
+    /* â”€â”€ Grid fins (deployed at ratio > 0.4) â”€â”€ */
     const finDeploy = cl((ratio - 0.38) * 6, 0, 1);
     if (finDeploy > 0) {
       ctx.globalAlpha = alpha * finDeploy;
@@ -1306,7 +1346,7 @@ function initJourneyCanvas() {
       ctx.globalAlpha = alpha;
     }
 
-    /* ── Landing legs (folded close to body) ── */
+    /* â”€â”€ Landing legs (folded close to body) â”€â”€ */
     ctx.fillStyle = 'rgba(160, 195, 235, 0.65)';
     ctx.beginPath();
     ctx.moveTo(-7, 26);
@@ -1323,7 +1363,7 @@ function initJourneyCanvas() {
     ctx.closePath();
     ctx.fill();
 
-    /* ── Engine cluster (9 Merlin engines) ── */
+    /* â”€â”€ Engine cluster (9 Merlin engines) â”€â”€ */
     const nozzleG = ctx.createLinearGradient(-7, 26, 7, 32);
     nozzleG.addColorStop(0, '#b0c8e8');
     nozzleG.addColorStop(1, '#6888a8');
@@ -1341,7 +1381,7 @@ function initJourneyCanvas() {
     ctx.moveTo(0, 26.5); ctx.lineTo(0, 31);
     ctx.stroke();
 
-    /* ── astr.studio decal ── */
+    /* â”€â”€ astr.studio decal â”€â”€ */
     ctx.fillStyle = 'rgba(37, 116, 240, 0.55)';
     ctx.fillRect(-5, 5, 10, 4);
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
@@ -1350,7 +1390,7 @@ function initJourneyCanvas() {
     ctx.restore();
   }
 
-  /* ─── Stage separation flash ─── */
+  /* â”€â”€â”€ Stage separation flash â”€â”€â”€ */
   function drawStageSep(cx, cy, alpha) {
     if (alpha < 0.01) return;
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 30);
@@ -1363,7 +1403,7 @@ function initJourneyCanvas() {
     ctx.fill();
   }
 
-  /* ─── Photorealistic ISS-style satellite ─── */
+  /* â”€â”€â”€ Photorealistic ISS-style satellite â”€â”€â”€ */
   function drawSatellite(cx, cy, scale, alpha, tick) {
     if (alpha < 0.01) return;
     ctx.save();
@@ -1372,7 +1412,7 @@ function initJourneyCanvas() {
     ctx.scale(scale, scale);
     ctx.rotate(sin(tick * 0.006) * 0.08); // gentle sway
 
-    /* ─ Main truss structure ─ */
+    /* â”€ Main truss structure â”€ */
     ctx.fillStyle = '#c8d8e8';
     ctx.strokeStyle = 'rgba(120,160,210,0.5)';
     ctx.lineWidth = 0.8;
@@ -1386,7 +1426,7 @@ function initJourneyCanvas() {
       ctx.beginPath(); ctx.moveTo(tx, -4); ctx.lineTo(tx, 4); ctx.stroke();
     }
 
-    /* ─ Solar arrays — 4 panels ─ */
+    /* â”€ Solar arrays â€” 4 panels â”€ */
     const panelColors = [
       { x: -55, w: 44 },
       { x:  11, w: 44 },
@@ -1424,7 +1464,7 @@ function initJourneyCanvas() {
       ctx.strokeRect(p.x, -20, p.w, 40);
     }
 
-    /* ─ Habitat modules ─ */
+    /* â”€ Habitat modules â”€ */
     // Main hab cylinder
     const habG = ctx.createLinearGradient(-16, -12, 16, 12);
     habG.addColorStop(0,   '#e4eef8');
@@ -1469,7 +1509,7 @@ function initJourneyCanvas() {
     ctx.arc(0, 0, 12, 0, PI*2);
     ctx.stroke();
 
-    /* ─ Radiator panels ─ */
+    /* â”€ Radiator panels â”€ */
     for (const side of [-1, 1]) {
       const rx = side * 18;
       const radG = ctx.createLinearGradient(rx, -8, rx + side*12, 8);
@@ -1488,7 +1528,7 @@ function initJourneyCanvas() {
       }
     }
 
-    /* ─ Earth below the satellite (reflection glow) ─ */
+    /* â”€ Earth below the satellite (reflection glow) â”€ */
     const earthRef = ctx.createRadialGradient(0, 22, 0, 0, 22, 20);
     earthRef.addColorStop(0, 'rgba(40, 120, 220, 0.18)');
     earthRef.addColorStop(1, 'rgba(40, 120, 220, 0)');
@@ -1500,7 +1540,7 @@ function initJourneyCanvas() {
     ctx.restore();
   }
 
-  /* ─── Orbit ellipse ─── */
+  /* â”€â”€â”€ Orbit ellipse â”€â”€â”€ */
   function drawOrbit(cx, cy, rx, ry, alpha) {
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -1514,7 +1554,7 @@ function initJourneyCanvas() {
     ctx.restore();
   }
 
-  /* ─── Contrail / flight path ─── */
+  /* â”€â”€â”€ Contrail / flight path â”€â”€â”€ */
   function drawContrail(rocketX, rocketY, startX, startY, alpha) {
     if (alpha < 0.01) return;
     const g = ctx.createLinearGradient(startX, startY, rocketX, rocketY);
@@ -1529,48 +1569,10 @@ function initJourneyCanvas() {
     ctx.stroke();
   }
 
-  /* ─── Exhaust particles ─── */
-  const particles = [];
 
-  function emitParticles(cx, cy, scale, intensity, inSpace) {
-    if (!pref && intensity > 0.1 && particles.length < 220) {
-      const count = inSpace ? 1 : 3;
-      for (let i = 0; i < count; i++) {
-        const spread = inSpace ? 2 : 4;
-        particles.push({
-          x:    cx + (rnd() - 0.5) * spread * scale,
-          y:    cy + 28 * scale,
-          vx:   (rnd() - 0.5) * 1.6,
-          vy:   rnd() * 2.4 + 0.6,
-          life: 1,
-          r:    (rnd() * 3.5 + 1.2) * scale,
-          hue:  inSpace ? 200 + rnd() * 40 : 18 + rnd() * 22,
-          bright: inSpace ? 70 : 55,
-        });
-      }
-    }
-  }
-
-  function drawParticles() {
-    for (let i = particles.length - 1; i >= 0; i--) {
-      const p = particles[i];
-      p.x  += p.vx;
-      p.y  += p.vy;
-      p.vx *= 0.98;
-      p.vy += 0.05;
-      p.life -= 0.032;
-      p.r   *= 0.995;
-      if (p.life <= 0 || p.r < 0.2) { particles.splice(i, 1); continue; }
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, PI*2);
-      ctx.fillStyle = `hsla(${p.hue}, 90%, ${p.bright + p.life * 25}%, ${p.life * 0.78})`;
-      ctx.fill();
-    }
-  }
-
-  /* ════════════════════════════════════════════════════
+  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      MAIN RENDER LOOP
-  ════════════════════════════════════════════════════ */
+  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
   let tick = 0;
   const earthY  = () => H - 80;
@@ -1588,97 +1590,18 @@ function initJourneyCanvas() {
 
     ctx.clearRect(0, 0, W, H);
 
-    const eY = earthY();
-    const eR = earthR();
+    /* Background overlay */
+    drawBackground();
 
-    /* ── Background ── */
-    drawBackground(ratio);
-
-    /* ── Stars ── */
+    /* Stars overlay */
     drawStars(ratio, tick);
 
-    /* ── Nebula glow (visible from step 4+) ── */
-    const nebA = cl((ratio - 0.28) * 1.8, 0, 1);
-    if (nebA > 0) {
-      const nb = ctx.createRadialGradient(W*0.62, H*0.28, 0, W*0.62, H*0.28, 110);
-      nb.addColorStop(0, `rgba(30, 80, 200, ${nebA * 0.2})`);
-      nb.addColorStop(0.5,`rgba(20, 50, 150, ${nebA * 0.08})`);
-      nb.addColorStop(1,  'rgba(10, 30, 100, 0)');
-      ctx.beginPath(); ctx.arc(W*0.62, H*0.28, 110, 0, PI*2);
-      ctx.fillStyle = nb; ctx.fill();
-
-      const nb2 = ctx.createRadialGradient(W*0.2, H*0.42, 0, W*0.2, H*0.42, 80);
-      nb2.addColorStop(0, `rgba(60, 30, 180, ${nebA * 0.14})`);
-      nb2.addColorStop(1, 'rgba(30, 10, 100, 0)');
-      ctx.beginPath(); ctx.arc(W*0.2, H*0.42, 80, 0, PI*2);
-      ctx.fillStyle = nb2; ctx.fill();
-    }
-
-    /* ── Earth ── */
-    const earthAlpha = cl(1 - ratio * 1.8, 0.06, 1);
-    drawEarth(W * 0.5, eY, eR * cl(1 - ratio * 0.35, 0.65, 1), earthAlpha, tick);
-
-    /* ── Launch pad ── */
-    const padAlpha = cl(1 - ratio * 18, 0, 1);
-    drawLaunchpad(W * 0.5, eY - eR, padAlpha);
-
-    /* ── Rocket trajectory ── */
-    // Stage separation happens around step 4-5 (ratio ~0.33-0.41)
-    const sepRatio = cl((ratio - 0.32) / 0.06, 0, 1);
-    const inSpace  = ratio > 0.4;
-
-    // Rocket position: launch from Earth, arc up, then straight toward top
-    const startY = eY - eR - 20;
-    const endY   = H * 0.18;
-    const rocketY = lr(startY, endY, ease(ratio));
-    const rocketX = W * 0.5 + sin(ease(ratio) * PI * 0.6) * 22;
-    const rocketScale = lr(0.85, 0.52, ratio);
-
-    /* ── Contrail ── */
-    const contrailA = cl(ratio * 3, 0, 1);
-    drawContrail(rocketX, rocketY, W * 0.5, eY - eR, contrailA);
-
-    /* ── Stage sep flash ── */
-    const sepFlash = cl((sepRatio - 0.1) * 5, 0, 1) * cl(1 - (sepRatio - 0.3) * 5, 0, 1);
-    if (sepFlash > 0) {
-      drawStageSep(rocketX, rocketY + 5 * rocketScale, sepFlash);
-    }
-
-    /* ── Rocket ── */
-    const rocketAlpha = cl(ratio < 0.88 ? 1 : 1 - (ratio - 0.88) * 8, 0, 1);
-    const exhaustFlicker = pref ? 0.85 : 0.65 + 0.35 * sin(tick * 0.28 + sin(tick * 0.17) * 0.5);
-    const exhaustA = cl(ratio < 0.82 ? exhaustFlicker : (1 - ratio) * 6, 0, 1);
-    drawRocket(rocketX, rocketY, rocketScale, rocketAlpha, exhaustA, tick, ratio);
-    emitParticles(rocketX, rocketY, rocketScale, exhaustA, inSpace);
-    drawParticles();
-
-    /* ── Orbit path ── */
+    /* â”€â”€ Orbit path â”€â”€ */
     const orbitA = cl((ratio - 0.72) * 4, 0, 1);
     const orbitCY = H * 0.17;
     if (orbitA > 0) drawOrbit(W * 0.5, orbitCY, 68, 18, orbitA);
 
-    /* ── Satellite ── */
-    const satA = cl((ratio - 0.84) / 0.16, 0, 1);
-    if (satA > 0) {
-      const angle = tick * 0.010;
-      const satX  = W * 0.5 + cos(angle) * 68;
-      const satY  = orbitCY + sin(angle) * 18;
-      const satScale = lr(0, 1.1, satA) * 0.78;
-      drawSatellite(satX, satY, satScale, satA, tick);
-
-      // Orbital sunrise glow
-      if (satA > 0.5) {
-        const sunA = cl((satA - 0.5) * 2, 0, 1) * (0.5 + 0.5 * sin(angle * 2));
-        const sunG = ctx.createRadialGradient(W * 0.82, orbitCY - 30, 0, W * 0.82, orbitCY - 30, 50);
-        sunG.addColorStop(0, `rgba(255, 200, 80, ${sunA * 0.55})`);
-        sunG.addColorStop(0.4,`rgba(255, 140, 40, ${sunA * 0.25})`);
-        sunG.addColorStop(1,  'rgba(255, 80, 0, 0)');
-        ctx.beginPath(); ctx.arc(W * 0.82, orbitCY - 30, 50, 0, PI*2);
-        ctx.fillStyle = sunG; ctx.fill();
-      }
-    }
-
-    /* ── Left edge blend ── */
+    /* â”€â”€ Left edge blend â”€â”€ */
     const edgeG = ctx.createLinearGradient(0, 0, 28, 0);
     edgeG.addColorStop(0, 'rgba(2, 5, 14, 0.75)');
     edgeG.addColorStop(1, 'rgba(2, 5, 14, 0)');
@@ -1686,7 +1609,7 @@ function initJourneyCanvas() {
     ctx.fillRect(0, 0, 28, H);
   }
 
-  /* ── Animation loop ── */
+  /* â”€â”€ Animation loop â”€â”€ */
   function loop() {
     render();
     state.journeyAnimFrame = requestAnimationFrame(loop);
@@ -1711,3 +1634,4 @@ function initJourneyCanvas() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+

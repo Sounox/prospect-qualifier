@@ -1859,10 +1859,27 @@ body {
   z-index: 1;
 }
 
-#journey-canvas {
-  width: 320px;
+.journey-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
   height: 100%;
-  display: block;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+  pointer-events: none;
+}
+
+.journey-video.is-active {
+  opacity: 1;
+}
+
+#journey-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
 }
 
 .journey-label {
@@ -1878,6 +1895,7 @@ body {
   white-space: nowrap;
   transition: opacity 0.5s ease;
   text-shadow: 0 0 12px rgba(80, 160, 255, 0.4);
+  z-index: 3;
 }
 
 /* ── Show journey panel on wide screens ── */
