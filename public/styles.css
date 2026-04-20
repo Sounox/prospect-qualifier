@@ -1820,43 +1820,68 @@ body {
   right: 0;
   top: 57px;
   bottom: 0;
-  width: 260px;
+  width: 320px;
   pointer-events: none;
   z-index: 3;
   overflow: hidden;
+  border-left: 1px solid rgba(60, 120, 220, 0.18);
+  box-shadow: -12px 0 48px rgba(20, 80, 200, 0.12);
 }
 
+/* Left-edge glow separator */
 .journey-panel::before {
   content: '';
   position: absolute;
-  inset: 0;
-  background: linear-gradient(270deg, rgba(4, 9, 22, 0.72) 0%, transparent 100%);
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(80, 160, 255, 0.35) 30%,
+    rgba(100, 180, 255, 0.5) 50%,
+    rgba(80, 160, 255, 0.35) 70%,
+    transparent 100%
+  );
   pointer-events: none;
+  z-index: 2;
+}
+
+/* Left fade blending with main content */
+.journey-panel::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 40px;
+  background: linear-gradient(90deg, rgba(3, 7, 20, 0.65), transparent);
+  pointer-events: none;
+  z-index: 1;
 }
 
 #journey-canvas {
-  width: 260px;
+  width: 320px;
   height: 100%;
   display: block;
 }
 
 .journey-label {
   position: absolute;
-  bottom: 28px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #6a9ac8;
+  color: rgba(140, 195, 255, 0.65);
   white-space: nowrap;
-  opacity: 0.7;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.5s ease;
+  text-shadow: 0 0 12px rgba(80, 160, 255, 0.4);
 }
 
 /* ── Show journey panel on wide screens ── */
-@media (min-width: 1200px) {
+@media (min-width: 1100px) {
   .journey-panel {
     display: block;
   }

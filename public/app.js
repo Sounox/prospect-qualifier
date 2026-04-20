@@ -805,7 +805,7 @@ function initSpaceCanvas() {
   });
 }
 
-// ── Journey Canvas (rocket launch side animation) ────────────────────────────
+// ── Journey Canvas — Photorealistic Space Launch ─────────────────────────────
 
 function initJourneyCanvas() {
   const panel  = document.getElementById('journey-panel');
@@ -813,473 +813,900 @@ function initJourneyCanvas() {
   const label  = document.getElementById('journey-label');
   if (!panel || !canvas) return;
 
-  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  const W = 260;
+  const pref = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const W = 320;
   let H = 0;
   const ctx = canvas.getContext('2d');
 
-  // ── particles for exhaust ────────────────────────────────────────────────
-  const exhaust = [];
+  /* ─── helpers ─── */
+  const cl  = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const lr  = (a, b, t)   => a + (b - a) * cl(t, 0, 1);
+  const ease = t => t < .5 ? 2*t*t : -1+(4-2*t)*t;
+  const sin  = Math.sin, cos = Math.cos, PI = Math.PI, rnd = Math.random;
 
-  // ── helpers ─────────────────────────────────────────────────────────────
-  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-  const lerp  = (a, b, t)   => a + (b - a) * clamp(t, 0, 1);
-  const easeInOut = (t)     => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-
-  // Journey phase labels
-  const PHASE_LABELS = [
-    'Initialisation', 'Mise à feu', 'Décollage',
-    'Montée en orbite', 'Atmosphère', 'Zone de transition',
-    'Espace profond', 'Trajectoire finale',
-    'Approche orbitale', 'Déploiement', 'En orbite',
-  ];
-
-  function resize() {
-    H = panel.offsetHeight || window.innerHeight - 57;
-    const ratio = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width  = Math.floor(W * ratio);
-    canvas.height = Math.floor(H * ratio);
-    canvas.style.width  = `${W}px`;
-    canvas.style.height = `${H}px`;
-    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  /* ─── star field (seeded, stable across frames) ─── */
+  const STARS = [];
+  function buildStars() {
+    STARS.length = 0;
+    // deterministic pseudo-random using index as seed
+    for (let i = 0; i < 180; i++) {
+      const s = Math.sin(i * 127.1 + 311.7) * 43758.5453;
+      const s2 = Math.sin(i * 269.5 + 183.3) * 43758.5453;
+      const s3 = Math.sin(i * 419.2 + 77.1)  * 43758.5453;
+      const s4 = Math.sin(i * 538.9 + 220.4) * 43758.5453;
+      const s5 = Math.sin(i * 672.3 + 99.2)  * 43758.5453;
+      const frac = v => v - Math.floor(v);
+      // Star color temperature variety
+      const temp = frac(Math.abs(s3));
+      let hue, sat;
+      if (temp < 0.15)      { hue = 220; sat = 80; }  // blue giants
+      else if (temp < 0.45) { hue = 210; sat = 30; }  // white
+      else if (temp < 0.72) { hue = 45;  sat = 40; }  // yellow
+      else                  { hue = 20;  sat = 60; }  // orange/red dwarfs
+      STARS.push({
+        x: frac(Math.abs(s))  * W,
+        y: frac(Math.abs(s2)) * H,
+        r: 0.25 + frac(Math.abs(s4)) * 1.35,
+        base: 0.18 + frac(Math.abs(s5)) * 0.72,
+        twPhase: i * 0.74,
+        twSpeed: 0.008 + frac(Math.abs(s3)) * 0.018,
+        hue, sat,
+      });
+    }
   }
 
-  // ── Drawing primitives ───────────────────────────────────────────────────
+  /* ─── phase labels ─── */
+  const LABELS = [
+    'Initialisation', 'Mise à feu', 'Décollage',
+    'Percée atmosphérique', 'Max-Q', 'Coupure moteur',
+    'Séparation du premier étage', 'Trajectoire orbitale',
+    'Approche satellite', 'Déploiement solaire', 'En orbite',
+  ];
 
-  function drawStarField(ratio) {
-    // a few hand-placed bright stars that fade in as we go deeper
-    const count = Math.floor(lerp(6, 22, ratio));
-    const seed  = [0.12,0.45,0.28,0.73,0.61,0.09,0.84,0.37,0.52,0.18,
-                   0.92,0.66,0.31,0.77,0.55,0.04,0.88,0.41,0.23,0.95,
-                   0.14,0.68];
-    for (let i = 0; i < count; i++) {
-      const sx = seed[i % seed.length] * W;
-      const sy = seed[(i + 5) % seed.length] * H * 0.75;
-      const sr = 0.6 + seed[(i + 2) % seed.length] * 1.1;
-      const sa = clamp(lerp(0, 0.9, (ratio - 0.05) * 4) * (0.5 + 0.5 * seed[(i+3)%seed.length]), 0, 1);
+  /* ─── resize ─── */
+  function resize() {
+    H = panel.offsetHeight || (window.innerHeight - 57);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width  = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    canvas.style.width  = `${W}px`;
+    canvas.style.height = `${H}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    buildStars();
+  }
+
+  /* ════════════════════════════════════════════════════
+     DRAWING PRIMITIVES
+  ════════════════════════════════════════════════════ */
+
+  /* ─── Deep space background with Milky Way ─── */
+  function drawBackground(ratio) {
+    // Base void
+    ctx.fillStyle = '#010409';
+    ctx.fillRect(0, 0, W, H);
+
+    // Milky Way band (diagonal, fades in after launch)
+    const mwA = cl((ratio - 0.15) * 1.4, 0, 0.55);
+    if (mwA > 0) {
+      const mw = ctx.createLinearGradient(0, H*0.1, W, H*0.65);
+      mw.addColorStop(0,   `rgba(10, 20, 60, 0)`);
+      mw.addColorStop(0.3, `rgba(18, 35, 80, ${mwA * 0.5})`);
+      mw.addColorStop(0.5, `rgba(22, 42, 95, ${mwA})`);
+      mw.addColorStop(0.7, `rgba(18, 35, 80, ${mwA * 0.5})`);
+      mw.addColorStop(1,   `rgba(10, 20, 60, 0)`);
+      ctx.fillStyle = mw;
+      ctx.fillRect(0, 0, W, H);
+
+      // Fine star dust on the band
+      ctx.fillStyle = `rgba(200, 220, 255, ${mwA * 0.06})`;
+      for (let i = 0; i < 80; i++) {
+        const bx = (sin(i * 37.9) * 0.5 + 0.5) * W;
+        const by = (sin(i * 53.1 + 1.2) * 0.5 + 0.5) * H;
+        ctx.fillRect(bx, by, 0.6, 0.6);
+      }
+    }
+
+    // Atmosphere near Earth bottom — blue limb glow
+    const atmH = H * lr(0.38, 0.12, ratio);
+    if (atmH > 0) {
+      const atm = ctx.createLinearGradient(0, H - atmH, 0, H);
+      atm.addColorStop(0, 'rgba(10, 40, 110, 0)');
+      atm.addColorStop(0.4, `rgba(20, 80, 200, ${lr(0.28, 0.06, ratio)})`);
+      atm.addColorStop(0.75, `rgba(35, 110, 230, ${lr(0.45, 0.08, ratio)})`);
+      atm.addColorStop(1, `rgba(50, 140, 255, ${lr(0.55, 0.10, ratio)})`);
+      ctx.fillStyle = atm;
+      ctx.fillRect(0, H - atmH, W, atmH);
+    }
+  }
+
+  /* ─── Star field with twinkling ─── */
+  function drawStars(ratio, tick) {
+    const depthAlpha = cl(ratio * 2.8 + 0.08, 0, 1);
+    for (const s of STARS) {
+      if (!pref) s.twPhase += s.twSpeed;
+      const tw = 0.65 + 0.35 * sin(s.twPhase);
+      const a  = s.base * tw * depthAlpha;
+      if (a < 0.02) continue;
+
       ctx.beginPath();
-      ctx.arc(sx, sy, sr, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(210, 235, 255, ${sa})`;
+      ctx.arc(s.x, s.y, s.r, 0, PI * 2);
+      ctx.fillStyle = `hsla(${s.hue}, ${s.sat}%, 90%, ${a})`;
       ctx.fill();
-      if (sr > 1.2 && sa > 0.4) {
-        const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr * 4);
-        g.addColorStop(0, `rgba(180, 220, 255, ${sa * 0.4})`);
-        g.addColorStop(1, `rgba(180, 220, 255, 0)`);
+
+      // Glow halo on bright stars
+      if (s.r > 1.1 && a > 0.35) {
+        const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r * 5);
+        g.addColorStop(0, `hsla(${s.hue}, ${s.sat}%, 90%, ${a * 0.35})`);
+        g.addColorStop(1, `hsla(${s.hue}, ${s.sat}%, 90%, 0)`);
         ctx.beginPath();
-        ctx.arc(sx, sy, sr * 4, 0, Math.PI * 2);
+        ctx.arc(s.x, s.y, s.r * 5, 0, PI * 2);
         ctx.fillStyle = g;
         ctx.fill();
+
+        // Diffraction cross on very bright stars
+        if (s.r > 1.4 && a > 0.55) {
+          ctx.strokeStyle = `hsla(${s.hue}, 50%, 95%, ${a * 0.28})`;
+          ctx.lineWidth = 0.5;
+          const size = s.r * 8;
+          ctx.beginPath();
+          ctx.moveTo(s.x - size, s.y); ctx.lineTo(s.x + size, s.y);
+          ctx.moveTo(s.x, s.y - size); ctx.lineTo(s.x, s.y + size);
+          ctx.stroke();
+        }
       }
     }
   }
 
-  function drawEarth(cx, cy, r, fadeOut) {
-    // Outer atmosphere
-    const atmoR = r * 1.55;
-    const atmo = ctx.createRadialGradient(cx, cy, r * 0.85, cx, cy, atmoR);
-    atmo.addColorStop(0, `rgba(80, 160, 255, ${0.35 * fadeOut})`);
-    atmo.addColorStop(0.5, `rgba(60, 120, 220, ${0.18 * fadeOut})`);
-    atmo.addColorStop(1, 'rgba(40, 80, 180, 0)');
-    ctx.beginPath();
-    ctx.arc(cx, cy, atmoR, 0, Math.PI * 2);
-    ctx.fillStyle = atmo;
-    ctx.fill();
-
-    // Body
-    const body = ctx.createRadialGradient(cx - r*0.28, cy - r*0.28, r * 0.05, cx, cy, r);
-    body.addColorStop(0, `rgba(120, 195, 255, ${fadeOut})`);
-    body.addColorStop(0.45, `rgba(32, 110, 220, ${fadeOut})`);
-    body.addColorStop(1, `rgba(8, 45, 120, ${fadeOut})`);
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fillStyle = body;
-    ctx.fill();
-
-    // Land masses
+  /* ─── Photorealistic Earth ─── */
+  function drawEarth(cx, cy, r, alpha, tick) {
+    if (alpha < 0.01) return;
     ctx.save();
+    ctx.globalAlpha = alpha;
+
+    // Outer glow / halo
+    const halo = ctx.createRadialGradient(cx, cy, r * 0.92, cx, cy, r * 2.1);
+    halo.addColorStop(0,   'rgba(40, 120, 255, 0.28)');
+    halo.addColorStop(0.35,'rgba(30, 90, 220, 0.14)');
+    halo.addColorStop(0.7, 'rgba(20, 60, 180, 0.05)');
+    halo.addColorStop(1,   'rgba(10, 30, 120, 0)');
     ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.arc(cx, cy, r * 2.1, 0, PI * 2);
+    ctx.fillStyle = halo;
+    ctx.fill();
+
+    // Deep ocean base
+    const ocean = ctx.createRadialGradient(cx - r*0.3, cy - r*0.3, 0, cx, cy, r);
+    ocean.addColorStop(0,   '#4a9fd4');
+    ocean.addColorStop(0.3, '#1e6fc2');
+    ocean.addColorStop(0.65,'#0d4a9e');
+    ocean.addColorStop(1,   '#062060');
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, PI * 2);
+    ctx.fillStyle = ocean;
+    ctx.fill();
+
+    // Clipping for land & clouds
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, PI * 2);
     ctx.clip();
-    ctx.globalAlpha = 0.72 * fadeOut;
-    ctx.fillStyle = '#5dce8a';
+
+    // ── Land masses ──
+    ctx.globalAlpha = alpha * 0.88;
+
+    // Africa / Europe shape
+    ctx.fillStyle = '#2d7a3a';
     ctx.beginPath();
-    ctx.ellipse(cx - r*0.12, cy - r*0.18, r*0.24, r*0.14, 0.4, 0, Math.PI*2);
+    ctx.ellipse(cx + r*0.08, cy - r*0.05, r*0.22, r*0.35, -0.2, 0, PI*2);
+    ctx.fill();
+    // Europe lobe
+    ctx.fillStyle = '#3d8f45';
+    ctx.beginPath();
+    ctx.ellipse(cx - r*0.04, cy - r*0.35, r*0.16, r*0.12, 0.5, 0, PI*2);
+    ctx.fill();
+    // Americas
+    ctx.fillStyle = '#2a6e34';
+    ctx.beginPath();
+    ctx.ellipse(cx - r*0.42, cy - r*0.1, r*0.14, r*0.3, 0.3, 0, PI*2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(cx + r*0.22, cy + r*0.08, r*0.19, r*0.11, -0.5, 0, Math.PI*2);
+    ctx.ellipse(cx - r*0.48, cy + r*0.22, r*0.11, r*0.18, -0.15, 0, PI*2);
     ctx.fill();
+    // Asia
+    ctx.fillStyle = '#348040';
     ctx.beginPath();
-    ctx.ellipse(cx - r*0.28, cy + r*0.22, r*0.14, r*0.08, 0.2, 0, Math.PI*2);
+    ctx.ellipse(cx + r*0.38, cy - r*0.18, r*0.28, r*0.2, -0.4, 0, PI*2);
     ctx.fill();
-    ctx.globalAlpha = 1;
+    // Australia
+    ctx.fillStyle = '#c8a030';
+    ctx.beginPath();
+    ctx.ellipse(cx + r*0.44, cy + r*0.3, r*0.12, r*0.08, 0.3, 0, PI*2);
+    ctx.fill();
+
+    // ── Cloud wisps ──
+    ctx.globalAlpha = alpha * 0.6;
+    const cloudOff = tick * 0.00015; // very slow drift
+    const cloudPath = (ox, oy, w, h, a) => {
+      ctx.save();
+      ctx.translate(cx + ox, cy + oy);
+      ctx.rotate(a);
+      const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, w);
+      cg.addColorStop(0, 'rgba(255,255,255,0.85)');
+      cg.addColorStop(0.5,'rgba(230,240,255,0.4)');
+      cg.addColorStop(1, 'rgba(200,220,255,0)');
+      ctx.fillStyle = cg;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, w, h, 0, 0, PI*2);
+      ctx.fill();
+      ctx.restore();
+    };
+    cloudPath(r*0.1  + sin(cloudOff)*r*0.04, -r*0.5, r*0.3, r*0.06, 0.2);
+    cloudPath(-r*0.3 + cos(cloudOff)*r*0.03,  r*0.15, r*0.25, r*0.05, -0.15);
+    cloudPath(r*0.45 + sin(cloudOff*1.3)*r*0.02, r*0.42, r*0.22, r*0.05, 0.4);
+    cloudPath(-r*0.05+ cos(cloudOff*0.8)*r*0.03, -r*0.25, r*0.32, r*0.07, -0.3);
+
+    // ── Night side with city lights ──
+    ctx.globalAlpha = alpha;
+    const night = ctx.createLinearGradient(cx + r*0.2, cy - r, cx + r, cy + r*0.2);
+    night.addColorStop(0,   'rgba(0,3,12,0)');
+    night.addColorStop(0.45,'rgba(0,3,12,0.25)');
+    night.addColorStop(0.7, 'rgba(0,3,12,0.62)');
+    night.addColorStop(1,   'rgba(0,3,12,0.82)');
+    ctx.fillStyle = night;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+
+    // City lights on dark side
+    ctx.globalAlpha = alpha * 0.7;
+    const cityData = [
+      [0.52, -0.18], [0.42, -0.28], [0.55, -0.08],  // Europe
+      [0.48,  0.04], [0.38,  0.10],                   // Middle East
+      [0.62, -0.25], [0.70, -0.15],                   // Asia
+    ];
+    for (const [ox, oy] of cityData) {
+      const lx = cx + r * ox, ly = cy + r * oy;
+      const lg = ctx.createRadialGradient(lx, ly, 0, lx, ly, r * 0.08);
+      lg.addColorStop(0, 'rgba(255, 220, 120, 0.55)');
+      lg.addColorStop(1, 'rgba(255, 200, 80, 0)');
+      ctx.beginPath();
+      ctx.arc(lx, ly, r * 0.08, 0, PI * 2);
+      ctx.fillStyle = lg;
+      ctx.fill();
+    }
+
     ctx.restore();
 
-    // Rim light
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(140, 210, 255, ${0.55 * fadeOut})`;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-  }
-
-  function drawLaunchpad(cx, cy, alpha) {
+    // Thin atmosphere rim (drawn outside clip)
+    ctx.save();
     ctx.globalAlpha = alpha;
-    // Platform base
-    ctx.fillStyle = '#1a3466';
+    const rim = ctx.createRadialGradient(cx, cy, r * 0.96, cx, cy, r * 1.08);
+    rim.addColorStop(0,   'rgba(60, 160, 255, 0.55)');
+    rim.addColorStop(0.5, 'rgba(40, 120, 220, 0.22)');
+    rim.addColorStop(1,   'rgba(20, 80, 180, 0)');
     ctx.beginPath();
-    ctx.roundRect(cx - 22, cy, 44, 10, 3);
+    ctx.arc(cx, cy, r * 1.08, 0, PI * 2);
+    ctx.fillStyle = rim;
     ctx.fill();
-    // Tower
-    ctx.fillStyle = '#243d6e';
-    ctx.fillRect(cx + 12, cy - 40, 5, 40);
-    // Arm
-    ctx.fillStyle = '#2a4a80';
-    ctx.fillRect(cx + 5, cy - 30, 12, 3);
-    ctx.globalAlpha = 1;
+
+    // Specular highlight (sun glint on ocean)
+    const spec = ctx.createRadialGradient(cx - r*0.32, cy - r*0.32, 0, cx - r*0.32, cy - r*0.32, r * 0.4);
+    spec.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
+    spec.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.beginPath();
+    ctx.arc(cx - r*0.32, cy - r*0.32, r * 0.4, 0, PI * 2);
+    ctx.fillStyle = spec;
+    ctx.fill();
+    ctx.restore();
   }
 
-  function drawRocket(cx, cy, scale, alpha, exhaustAlpha, t) {
+  /* ─── Launch pad & infrastructure ─── */
+  function drawLaunchpad(cx, earthTop, alpha) {
+    if (alpha < 0.01) return;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    const base = earthTop + 4;
+    // Flame trench
+    const trench = ctx.createLinearGradient(cx - 20, base, cx - 20, base + 16);
+    trench.addColorStop(0, '#1a1a2e');
+    trench.addColorStop(1, '#0d0d1a');
+    ctx.fillStyle = trench;
+    ctx.beginPath();
+    ctx.roundRect(cx - 20, base, 40, 16, [0, 0, 4, 4]);
+    ctx.fill();
+
+    // Launch mount table
+    ctx.fillStyle = '#2a3a5e';
+    ctx.beginPath();
+    ctx.roundRect(cx - 16, base - 8, 32, 12, 2);
+    ctx.fill();
+    // Sheen
+    ctx.fillStyle = 'rgba(140, 170, 220, 0.12)';
+    ctx.beginPath();
+    ctx.roundRect(cx - 16, base - 8, 32, 4, [2, 2, 0, 0]);
+    ctx.fill();
+
+    // Hold-down arms
+    for (const ox of [-11, -5, 5, 11]) {
+      ctx.fillStyle = '#1e3060';
+      ctx.fillRect(cx + ox - 1.5, base - 18, 3, 12);
+    }
+
+    // Support tower
+    const tw = ctx.createLinearGradient(cx + 14, base - 50, cx + 20, base);
+    tw.addColorStop(0, '#283a60');
+    tw.addColorStop(1, '#1a2848');
+    ctx.fillStyle = tw;
+    ctx.fillRect(cx + 14, base - 50, 8, 50);
+    // Tower cross braces
+    ctx.strokeStyle = 'rgba(80, 110, 180, 0.4)';
+    ctx.lineWidth = 0.8;
+    for (let y = base - 45; y < base; y += 10) {
+      ctx.beginPath();
+      ctx.moveTo(cx + 14, y);
+      ctx.lineTo(cx + 22, y + 10);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx + 22, y);
+      ctx.lineTo(cx + 14, y + 10);
+      ctx.stroke();
+    }
+    // Service arm
+    ctx.fillStyle = '#2a4070';
+    ctx.fillRect(cx + 8, base - 38, 8, 4);
+
+    ctx.restore();
+  }
+
+  /* ─── Falcon 9 style rocket ─── */
+  function drawRocket(cx, cy, scale, alpha, exhaustIntensity, tick, ratio) {
+    if (alpha < 0.01) return;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(cx, cy);
     ctx.scale(scale, scale);
 
-    // Exhaust glow behind rocket
-    if (exhaustAlpha > 0.05) {
-      const e1 = ctx.createRadialGradient(0, 28, 0, 0, 38, 22);
-      e1.addColorStop(0, `rgba(255, 210, 80, ${exhaustAlpha * 0.9})`);
-      e1.addColorStop(0.35, `rgba(255, 120, 30, ${exhaustAlpha * 0.65})`);
-      e1.addColorStop(0.7, `rgba(255, 60, 10, ${exhaustAlpha * 0.28})`);
-      e1.addColorStop(1, 'rgba(255, 40, 0, 0)');
+    const S = 1; // uniform inner scale
+
+    /* ── Plume / exhaust ── */
+    if (exhaustIntensity > 0.02) {
+      // Outer plume bell
+      const p1 = ctx.createRadialGradient(0, 42, 2, 0, 55, 38);
+      p1.addColorStop(0,   `rgba(255, 255, 200, ${exhaustIntensity * 0.95})`);
+      p1.addColorStop(0.15,`rgba(255, 200, 60,  ${exhaustIntensity * 0.85})`);
+      p1.addColorStop(0.4, `rgba(255, 120, 20,  ${exhaustIntensity * 0.6})`);
+      p1.addColorStop(0.75,`rgba(200, 60, 0,    ${exhaustIntensity * 0.28})`);
+      p1.addColorStop(1,   'rgba(150, 30, 0, 0)');
       ctx.beginPath();
-      ctx.ellipse(0, 32, 10, 20, 0, 0, Math.PI * 2);
-      ctx.fillStyle = e1;
+      ctx.ellipse(0, 52, 18 + sin(tick*0.3)*2, 30 + sin(tick*0.25)*3, 0, 0, PI*2);
+      ctx.fillStyle = p1;
       ctx.fill();
 
-      // Inner white core
-      const e2 = ctx.createRadialGradient(0, 24, 0, 0, 28, 8);
-      e2.addColorStop(0, `rgba(255, 255, 240, ${exhaustAlpha})`);
-      e2.addColorStop(1, 'rgba(255, 200, 60, 0)');
+      // Shock diamond 1
+      const shockPulse = 0.5 + 0.5 * sin(tick * 0.45);
+      ctx.globalAlpha = alpha * exhaustIntensity * (0.55 + shockPulse * 0.35);
+      ctx.fillStyle = 'rgba(255, 240, 180, 0.8)';
       ctx.beginPath();
-      ctx.ellipse(0, 25, 4, 10, 0, 0, Math.PI * 2);
-      ctx.fillStyle = e2;
+      ctx.ellipse(0, 32 + shockPulse * 3, 5, 7, 0, 0, PI*2);
+      ctx.fill();
+      // Shock diamond 2
+      ctx.fillStyle = 'rgba(255, 220, 140, 0.6)';
+      ctx.beginPath();
+      ctx.ellipse(0, 44 + shockPulse * 4, 7, 9, 0, 0, PI*2);
+      ctx.fill();
+      ctx.globalAlpha = alpha;
+
+      // Engine glow wash on rocket body
+      const eng = ctx.createRadialGradient(0, 25, 0, 0, 25, 24);
+      eng.addColorStop(0, `rgba(255, 180, 40, ${exhaustIntensity * 0.32})`);
+      eng.addColorStop(1, 'rgba(255, 120, 0, 0)');
+      ctx.beginPath();
+      ctx.arc(0, 25, 24, 0, PI*2);
+      ctx.fillStyle = eng;
       ctx.fill();
     }
 
-    // Body gradient
-    const bodyG = ctx.createLinearGradient(-9, -26, 9, 20);
-    bodyG.addColorStop(0, '#f0f8ff');
-    bodyG.addColorStop(0.5, '#ffffff');
-    bodyG.addColorStop(1, '#a8d4ff');
+    /* ── First stage body ── */
+    const bodyG = ctx.createLinearGradient(-7, -30, 7, 28);
+    bodyG.addColorStop(0,   '#e8f2ff');
+    bodyG.addColorStop(0.25,'#ffffff');
+    bodyG.addColorStop(0.5, '#f4f9ff');
+    bodyG.addColorStop(0.75,'#dceeff');
+    bodyG.addColorStop(1,   '#b8d8f8');
     ctx.beginPath();
-    ctx.moveTo(0, -28);
-    ctx.bezierCurveTo(9, -12, 9, 6, 7, 18);
-    ctx.lineTo(-7, 18);
-    ctx.bezierCurveTo(-9, 6, -9, -12, 0, -28);
+    ctx.roundRect(-7, -30, 14, 60, [1, 1, 0, 0]);
     ctx.fillStyle = bodyG;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(160, 210, 255, 0.5)';
+
+    // Metallic highlight strip
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.beginPath();
+    ctx.roundRect(-3, -30, 4, 60, 1);
+    ctx.fill();
+
+    // Black interstage band
+    ctx.fillStyle = '#1a1a2a';
+    ctx.fillRect(-7, -2, 14, 5);
+    ctx.fillStyle = 'rgba(80, 120, 200, 0.25)';
+    ctx.fillRect(-7, -2, 14, 2);
+
+    /* ── Second stage ── */
+    const s2G = ctx.createLinearGradient(-5.5, -52, 5.5, -30);
+    s2G.addColorStop(0, '#f0f6ff');
+    s2G.addColorStop(1, '#cce0f8');
+    ctx.beginPath();
+    ctx.roundRect(-5.5, -52, 11, 22, [1, 1, 0, 0]);
+    ctx.fillStyle = s2G;
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.beginPath();
+    ctx.roundRect(-2.5, -52, 3, 22, 1);
+    ctx.fill();
+
+    /* ── Fairing nose cone ── */
+    ctx.beginPath();
+    ctx.moveTo(0, -74);
+    ctx.bezierCurveTo(6, -68, 5.5, -58, 5.5, -52);
+    ctx.lineTo(-5.5, -52);
+    ctx.bezierCurveTo(-5.5, -58, -6, -68, 0, -74);
+    ctx.closePath();
+    const noseG = ctx.createLinearGradient(-5.5, -74, 5.5, -52);
+    noseG.addColorStop(0,   '#d8eeff');
+    noseG.addColorStop(0.5, '#f5feff');
+    noseG.addColorStop(1,   '#c8dff5');
+    ctx.fillStyle = noseG;
+    ctx.fill();
+    // Nose specular
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath();
+    ctx.moveTo(0, -74);
+    ctx.bezierCurveTo(2.5, -70, 2.5, -63, 2.5, -58);
+    ctx.lineTo(-0.5, -58);
+    ctx.bezierCurveTo(-0.5, -63, -0.5, -70, 0, -74);
+    ctx.closePath();
+    ctx.fill();
+
+    /* ── Grid fins (deployed at ratio > 0.4) ── */
+    const finDeploy = cl((ratio - 0.38) * 6, 0, 1);
+    if (finDeploy > 0) {
+      ctx.globalAlpha = alpha * finDeploy;
+      const finG = ctx.createLinearGradient(-20, -10, 20, 5);
+      finG.addColorStop(0, '#8ab0d8');
+      finG.addColorStop(1, '#5a80aa');
+      ctx.fillStyle = finG;
+      // Left fin
+      ctx.save();
+      ctx.translate(-7, -12);
+      ctx.rotate(-0.2);
+      ctx.beginPath();
+      ctx.roundRect(-10, 0, 10, 14, 2);
+      ctx.fill();
+      // Grid lines
+      ctx.strokeStyle = 'rgba(40,80,140,0.5)';
+      ctx.lineWidth = 0.5;
+      for (let gx = -8; gx < 0; gx += 4) {
+        ctx.beginPath(); ctx.moveTo(gx, 1); ctx.lineTo(gx, 13); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(-9, 5); ctx.lineTo(-1, 5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-9, 9); ctx.lineTo(-1, 9); ctx.stroke();
+      ctx.restore();
+      // Right fin
+      ctx.save();
+      ctx.translate(7, -12);
+      ctx.rotate(0.2);
+      ctx.beginPath();
+      ctx.roundRect(0, 0, 10, 14, 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(40,80,140,0.5)';
+      ctx.lineWidth = 0.5;
+      for (let gx = 2; gx < 10; gx += 4) {
+        ctx.beginPath(); ctx.moveTo(gx, 1); ctx.lineTo(gx, 13); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(1, 5); ctx.lineTo(9, 5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(1, 9); ctx.lineTo(9, 9); ctx.stroke();
+      ctx.restore();
+      ctx.globalAlpha = alpha;
+    }
+
+    /* ── Landing legs (folded close to body) ── */
+    ctx.fillStyle = 'rgba(160, 195, 235, 0.65)';
+    ctx.beginPath();
+    ctx.moveTo(-7, 26);
+    ctx.lineTo(-11, 30);
+    ctx.lineTo(-8, 30);
+    ctx.lineTo(-7, 27);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(7, 26);
+    ctx.lineTo(11, 30);
+    ctx.lineTo(8, 30);
+    ctx.lineTo(7, 27);
+    ctx.closePath();
+    ctx.fill();
+
+    /* ── Engine cluster (9 Merlin engines) ── */
+    const nozzleG = ctx.createLinearGradient(-7, 26, 7, 32);
+    nozzleG.addColorStop(0, '#b0c8e8');
+    nozzleG.addColorStop(1, '#6888a8');
+    ctx.fillStyle = nozzleG;
+    // Center
+    ctx.beginPath();
+    ctx.moveTo(-5, 26); ctx.lineTo(5, 26); ctx.lineTo(4.5, 31); ctx.lineTo(-4.5, 31); ctx.closePath();
+    ctx.fill();
+    // Hexagonal cluster hint
+    ctx.strokeStyle = 'rgba(60, 100, 160, 0.4)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(-4, 27); ctx.lineTo(-1.5, 27);
+    ctx.moveTo(1.5, 27); ctx.lineTo(4, 27);
+    ctx.moveTo(0, 26.5); ctx.lineTo(0, 31);
+    ctx.stroke();
+
+    /* ── astr.studio decal ── */
+    ctx.fillStyle = 'rgba(37, 116, 240, 0.55)';
+    ctx.fillRect(-5, 5, 10, 4);
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.fillRect(-4, 6, 8, 1.5);
+
+    ctx.restore();
+  }
+
+  /* ─── Stage separation flash ─── */
+  function drawStageSep(cx, cy, alpha) {
+    if (alpha < 0.01) return;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 30);
+    g.addColorStop(0, `rgba(255, 200, 100, ${alpha * 0.8})`);
+    g.addColorStop(0.4, `rgba(255, 120, 40, ${alpha * 0.4})`);
+    g.addColorStop(1, 'rgba(255, 80, 0, 0)');
+    ctx.beginPath();
+    ctx.arc(cx, cy, 30, 0, PI * 2);
+    ctx.fillStyle = g;
+    ctx.fill();
+  }
+
+  /* ─── Photorealistic ISS-style satellite ─── */
+  function drawSatellite(cx, cy, scale, alpha, tick) {
+    if (alpha < 0.01) return;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.rotate(sin(tick * 0.006) * 0.08); // gentle sway
+
+    /* ─ Main truss structure ─ */
+    ctx.fillStyle = '#c8d8e8';
+    ctx.strokeStyle = 'rgba(120,160,210,0.5)';
+    ctx.lineWidth = 0.8;
+    // Central truss
+    ctx.fillRect(-55, -4, 110, 8);
+    ctx.strokeRect(-55, -4, 110, 8);
+    // Truss segments
+    ctx.strokeStyle = 'rgba(100,140,190,0.35)';
+    ctx.lineWidth = 0.6;
+    for (let tx = -50; tx <= 50; tx += 14) {
+      ctx.beginPath(); ctx.moveTo(tx, -4); ctx.lineTo(tx, 4); ctx.stroke();
+    }
+
+    /* ─ Solar arrays — 4 panels ─ */
+    const panelColors = [
+      { x: -55, w: 44 },
+      { x:  11, w: 44 },
+    ];
+    for (const p of panelColors) {
+      // Panel support arm
+      ctx.fillStyle = '#a8b8cc';
+      ctx.fillRect(p.x + (p.w === 44 && p.x < 0 ? 0 : 0), -1.5, 10, 3);
+
+      for (let row = 0; row < 2; row++) {
+        const py = row === 0 ? -4 : 4;
+        const panG = ctx.createLinearGradient(p.x, py, p.x + p.w, py + (row === 0 ? -16 : 16));
+        panG.addColorStop(0,   '#1030a0');
+        panG.addColorStop(0.3, '#1848c8');
+        panG.addColorStop(0.7, '#2060e0');
+        panG.addColorStop(1,   '#0c2880');
+        ctx.fillStyle = panG;
+        const ph = row === 0 ? -16 : 16;
+        ctx.fillRect(p.x, py, p.w, ph);
+        // Grid cells
+        ctx.strokeStyle = 'rgba(100, 170, 255, 0.35)';
+        ctx.lineWidth = 0.5;
+        for (let gx = p.x + 8; gx < p.x + p.w; gx += 8) {
+          ctx.beginPath(); ctx.moveTo(gx, py); ctx.lineTo(gx, py + ph); ctx.stroke();
+        }
+        ctx.beginPath(); ctx.moveTo(p.x, py + ph*0.5); ctx.lineTo(p.x + p.w, py + ph*0.5); ctx.stroke();
+        // Solar reflection highlight
+        ctx.fillStyle = 'rgba(80, 160, 255, 0.1)';
+        ctx.fillRect(p.x, py, p.w * 0.3, ph);
+      }
+
+      // Panel border
+      ctx.strokeStyle = 'rgba(140, 200, 255, 0.4)';
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(p.x, -20, p.w, 40);
+    }
+
+    /* ─ Habitat modules ─ */
+    // Main hab cylinder
+    const habG = ctx.createLinearGradient(-16, -12, 16, 12);
+    habG.addColorStop(0,   '#e4eef8');
+    habG.addColorStop(0.35,'#ffffff');
+    habG.addColorStop(0.65,'#d8ecf8');
+    habG.addColorStop(1,   '#b8d0e8');
+    ctx.fillStyle = habG;
+    ctx.beginPath();
+    ctx.roundRect(-16, -12, 32, 24, 5);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(140, 190, 240, 0.55)';
     ctx.lineWidth = 0.8;
     ctx.stroke();
 
-    // astr.studio stripe
-    ctx.fillStyle = 'rgba(37, 116, 240, 0.6)';
-    ctx.fillRect(-7, -2, 14, 5);
-
-    // Porthole
+    // Module sheen
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
     ctx.beginPath();
-    ctx.arc(0, -9, 5.5, 0, Math.PI * 2);
-    ctx.fillStyle = '#2060e8';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(0, -9, 3, 0, Math.PI * 2);
-    ctx.fillStyle = '#b8e4ff';
-    ctx.fill();
-    // Highlight
-    ctx.beginPath();
-    ctx.arc(-1.2, -10.2, 1.2, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.roundRect(-14, -12, 12, 24, [5, 0, 0, 5]);
     ctx.fill();
 
-    // Fins left & right
-    ctx.fillStyle = '#7ab8f5';
-    ctx.beginPath();
-    ctx.moveTo(-7, 8);
-    ctx.lineTo(-16, 20);
-    ctx.lineTo(-7, 18);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(7, 8);
-    ctx.lineTo(16, 20);
-    ctx.lineTo(7, 18);
-    ctx.closePath();
-    ctx.fill();
+    // Porthole windows
+    for (const wx of [-7, 0, 7]) {
+      ctx.beginPath();
+      ctx.arc(wx, 0, 3.5, 0, PI*2);
+      ctx.fillStyle = '#1040a0';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(wx, 0, 2, 0, PI*2);
+      ctx.fillStyle = '#4090d0';
+      ctx.fill();
+      // Reflection
+      ctx.beginPath();
+      ctx.arc(wx - 0.8, -0.8, 0.8, 0, PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.fill();
+    }
 
-    // Engine nozzle
-    ctx.fillStyle = '#d0e8ff';
+    // Docking ring
+    ctx.strokeStyle = 'rgba(180, 220, 255, 0.7)';
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.moveTo(-5, 18);
-    ctx.lineTo(5, 18);
-    ctx.lineTo(4, 24);
-    ctx.lineTo(-4, 24);
-    ctx.closePath();
+    ctx.arc(0, 0, 12, 0, PI*2);
+    ctx.stroke();
+
+    /* ─ Radiator panels ─ */
+    for (const side of [-1, 1]) {
+      const rx = side * 18;
+      const radG = ctx.createLinearGradient(rx, -8, rx + side*12, 8);
+      radG.addColorStop(0, '#e8f4ff');
+      radG.addColorStop(1, '#b0cce0');
+      ctx.fillStyle = radG;
+      ctx.fillRect(rx, -8, side*14, 16);
+      // Tubes
+      ctx.strokeStyle = 'rgba(100, 160, 210, 0.4)';
+      ctx.lineWidth = 0.5;
+      for (let ry = -6; ry <= 6; ry += 4) {
+        ctx.beginPath();
+        ctx.moveTo(rx, ry);
+        ctx.lineTo(rx + side*14, ry);
+        ctx.stroke();
+      }
+    }
+
+    /* ─ Earth below the satellite (reflection glow) ─ */
+    const earthRef = ctx.createRadialGradient(0, 22, 0, 0, 22, 20);
+    earthRef.addColorStop(0, 'rgba(40, 120, 220, 0.18)');
+    earthRef.addColorStop(1, 'rgba(40, 120, 220, 0)');
+    ctx.beginPath();
+    ctx.arc(0, 22, 20, 0, PI*2);
+    ctx.fillStyle = earthRef;
     ctx.fill();
 
     ctx.restore();
   }
 
-  function drawOrbitPath(cx, cy, rx, ry, alpha) {
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(80, 150, 255, ${alpha * 0.35})`;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([5, 8]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-
-  function drawSatellite(cx, cy, scale, alpha, orbitAngle) {
+  /* ─── Orbit ellipse ─── */
+  function drawOrbit(cx, cy, rx, ry, alpha) {
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.translate(cx, cy);
-    ctx.scale(scale, scale);
-    ctx.rotate(orbitAngle * 0.15);
-
-    // Main body
-    const bg = ctx.createLinearGradient(-10, -10, 10, 10);
-    bg.addColorStop(0, '#daeeff');
-    bg.addColorStop(1, '#a0c8f0');
-    ctx.fillStyle = bg;
-    ctx.strokeStyle = 'rgba(160, 210, 255, 0.6)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, PI*2);
+    ctx.strokeStyle = 'rgba(80, 155, 255, 0.4)';
     ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect(-10, -10, 20, 20, 3);
-    ctx.fill();
+    ctx.setLineDash([6, 10]);
     ctx.stroke();
-
-    // Solar panels — left
-    const panelG = ctx.createLinearGradient(-44, -5, -12, 5);
-    panelG.addColorStop(0, '#1a4db0');
-    panelG.addColorStop(0.4, '#2478f0');
-    panelG.addColorStop(1, '#4a9aff');
-    ctx.fillStyle = panelG;
-    ctx.fillRect(-44, -5, 30, 10);
-    // Panel grid lines
-    ctx.strokeStyle = 'rgba(140, 200, 255, 0.4)';
-    ctx.lineWidth = 0.5;
-    for (let gx = -34; gx < -14; gx += 10) {
-      ctx.beginPath(); ctx.moveTo(gx, -5); ctx.lineTo(gx, 5); ctx.stroke();
-    }
-
-    // Solar panels — right
-    const panelG2 = ctx.createLinearGradient(12, -5, 44, 5);
-    panelG2.addColorStop(0, '#4a9aff');
-    panelG2.addColorStop(0.6, '#2478f0');
-    panelG2.addColorStop(1, '#1a4db0');
-    ctx.fillStyle = panelG2;
-    ctx.fillRect(14, -5, 30, 10);
-    for (let gx = 24; gx < 44; gx += 10) {
-      ctx.beginPath(); ctx.moveTo(gx, -5); ctx.lineTo(gx, 5); ctx.stroke();
-    }
-
-    // Connecting rod
-    ctx.fillStyle = '#8ab8e0';
-    ctx.fillRect(-14, -1.5, 28, 3);
-
-    // Body detail – lens
-    ctx.beginPath();
-    ctx.arc(0, 0, 5, 0, Math.PI * 2);
-    ctx.fillStyle = '#1a50c0';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
-    ctx.fillStyle = '#88d4ff';
-    ctx.fill();
-
-    // Antenna dish
-    ctx.beginPath();
-    ctx.arc(4, -16, 7, Math.PI, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(180, 220, 255, 0.8)';
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(4, -16);
-    ctx.lineTo(4, -10);
-    ctx.stroke();
-
+    ctx.setLineDash([]);
     ctx.restore();
   }
 
-  function drawFlightTrail(points, alpha) {
-    if (points.length < 2) return;
-    for (let i = 1; i < points.length; i++) {
-      const t = i / points.length;
+  /* ─── Contrail / flight path ─── */
+  function drawContrail(rocketX, rocketY, startX, startY, alpha) {
+    if (alpha < 0.01) return;
+    const g = ctx.createLinearGradient(startX, startY, rocketX, rocketY);
+    g.addColorStop(0,    'rgba(120, 180, 255, 0)');
+    g.addColorStop(0.6,  `rgba(160, 200, 255, ${alpha * 0.25})`);
+    g.addColorStop(1,    `rgba(200, 230, 255, ${alpha * 0.5})`);
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(rocketX, rocketY);
+    ctx.strokeStyle = g;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  /* ─── Exhaust particles ─── */
+  const particles = [];
+
+  function emitParticles(cx, cy, scale, intensity, inSpace) {
+    if (!pref && intensity > 0.1 && particles.length < 220) {
+      const count = inSpace ? 1 : 3;
+      for (let i = 0; i < count; i++) {
+        const spread = inSpace ? 2 : 4;
+        particles.push({
+          x:    cx + (rnd() - 0.5) * spread * scale,
+          y:    cy + 28 * scale,
+          vx:   (rnd() - 0.5) * 1.6,
+          vy:   rnd() * 2.4 + 0.6,
+          life: 1,
+          r:    (rnd() * 3.5 + 1.2) * scale,
+          hue:  inSpace ? 200 + rnd() * 40 : 18 + rnd() * 22,
+          bright: inSpace ? 70 : 55,
+        });
+      }
+    }
+  }
+
+  function drawParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x  += p.vx;
+      p.y  += p.vy;
+      p.vx *= 0.98;
+      p.vy += 0.05;
+      p.life -= 0.032;
+      p.r   *= 0.995;
+      if (p.life <= 0 || p.r < 0.2) { particles.splice(i, 1); continue; }
       ctx.beginPath();
-      ctx.moveTo(points[i-1].x, points[i-1].y);
-      ctx.lineTo(points[i].x, points[i].y);
-      const grd = ctx.createLinearGradient(points[i-1].x, points[i-1].y, points[i].x, points[i].y);
-      grd.addColorStop(0, `rgba(60, 140, 255, 0)`);
-      grd.addColorStop(1, `rgba(100, 180, 255, ${alpha * t * 0.6})`);
-      ctx.strokeStyle = grd;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+      ctx.arc(p.x, p.y, p.r, 0, PI*2);
+      ctx.fillStyle = `hsla(${p.hue}, 90%, ${p.bright + p.life * 25}%, ${p.life * 0.78})`;
+      ctx.fill();
     }
   }
 
-  // Pre-built curved trail path points (Earth → orbit arc)
-  function buildTrailPoints(ratio) {
-    const pts = [];
-    const earthY = H - 70;
-    const count = Math.floor(ratio * 40);
-    for (let i = 0; i <= count; i++) {
-      const t = i / 40;
-      const x = W * 0.5 + Math.sin(t * Math.PI * 0.8) * 18;
-      const y = lerp(earthY - 38, H * 0.22, easeInOut(t));
-      pts.push({ x, y });
-    }
-    return pts;
-  }
-
-  // ── Main render ──────────────────────────────────────────────────────────
+  /* ════════════════════════════════════════════════════
+     MAIN RENDER LOOP
+  ════════════════════════════════════════════════════ */
 
   let tick = 0;
-  let lastRatio = -1;
+  const earthY  = () => H - 80;
+  const earthR  = () => cl(W * 0.28, 55, 80);
 
   function render() {
-    if (!panel.offsetParent && !document.body.dataset.screen === 'form') return;
-
     tick++;
-    const ratio = clamp((state.currentStep - 1) / (TOTAL_STEPS - 1), 0, 1);
+    const ratio = cl((state.currentStep - 1) / (TOTAL_STEPS - 1), 0, 1);
 
-    // Update label
+    // Update phase label
     if (label) {
-      const idx = Math.min(Math.floor(ratio * PHASE_LABELS.length), PHASE_LABELS.length - 1);
-      label.textContent = PHASE_LABELS[idx];
+      const idx = cl(Math.floor(ratio * LABELS.length), 0, LABELS.length - 1);
+      label.textContent = LABELS[idx];
     }
 
     ctx.clearRect(0, 0, W, H);
 
-    // ── Background deep-space gradient ─────────────────────────────────────
-    const bgG = ctx.createLinearGradient(0, 0, 0, H);
-    bgG.addColorStop(0, `rgba(2, 5, 16, ${lerp(0, 0.7, ratio)})`);
-    bgG.addColorStop(0.5, `rgba(4, 10, 28, ${lerp(0.1, 0.55, ratio)})`);
-    bgG.addColorStop(1, `rgba(6, 16, 44, ${lerp(0.2, 0.3, ratio)})`);
-    ctx.fillStyle = bgG;
-    ctx.fillRect(0, 0, W, H);
+    const eY = earthY();
+    const eR = earthR();
 
-    // ── Stars ──────────────────────────────────────────────────────────────
-    drawStarField(ratio);
+    /* ── Background ── */
+    drawBackground(ratio);
 
-    // ── Distant nebula glow (fades in mid-journey) ─────────────────────────
-    const nebulaA = clamp((ratio - 0.25) * 2, 0, 1);
-    if (nebulaA > 0) {
-      const nx = W * 0.35, ny = H * 0.25;
-      const ng = ctx.createRadialGradient(nx, ny, 0, nx, ny, 90);
-      ng.addColorStop(0, `rgba(40, 100, 220, ${nebulaA * 0.18})`);
-      ng.addColorStop(1, 'rgba(40, 100, 220, 0)');
-      ctx.beginPath();
-      ctx.arc(nx, ny, 90, 0, Math.PI * 2);
-      ctx.fillStyle = ng;
-      ctx.fill();
+    /* ── Stars ── */
+    drawStars(ratio, tick);
+
+    /* ── Nebula glow (visible from step 4+) ── */
+    const nebA = cl((ratio - 0.28) * 1.8, 0, 1);
+    if (nebA > 0) {
+      const nb = ctx.createRadialGradient(W*0.62, H*0.28, 0, W*0.62, H*0.28, 110);
+      nb.addColorStop(0, `rgba(30, 80, 200, ${nebA * 0.2})`);
+      nb.addColorStop(0.5,`rgba(20, 50, 150, ${nebA * 0.08})`);
+      nb.addColorStop(1,  'rgba(10, 30, 100, 0)');
+      ctx.beginPath(); ctx.arc(W*0.62, H*0.28, 110, 0, PI*2);
+      ctx.fillStyle = nb; ctx.fill();
+
+      const nb2 = ctx.createRadialGradient(W*0.2, H*0.42, 0, W*0.2, H*0.42, 80);
+      nb2.addColorStop(0, `rgba(60, 30, 180, ${nebA * 0.14})`);
+      nb2.addColorStop(1, 'rgba(30, 10, 100, 0)');
+      ctx.beginPath(); ctx.arc(W*0.2, H*0.42, 80, 0, PI*2);
+      ctx.fillStyle = nb2; ctx.fill();
     }
 
-    // ── Orbit path (fades in near end) ────────────────────────────────────
-    const orbitA = clamp((ratio - 0.7) * 4, 0, 1);
-    if (orbitA > 0) {
-      drawOrbitPath(W * 0.5, H * 0.18, 55, 16, orbitA);
+    /* ── Earth ── */
+    const earthAlpha = cl(1 - ratio * 1.8, 0.06, 1);
+    drawEarth(W * 0.5, eY, eR * cl(1 - ratio * 0.35, 0.65, 1), earthAlpha, tick);
+
+    /* ── Launch pad ── */
+    const padAlpha = cl(1 - ratio * 18, 0, 1);
+    drawLaunchpad(W * 0.5, eY - eR, padAlpha);
+
+    /* ── Rocket trajectory ── */
+    // Stage separation happens around step 4-5 (ratio ~0.33-0.41)
+    const sepRatio = cl((ratio - 0.32) / 0.06, 0, 1);
+    const inSpace  = ratio > 0.4;
+
+    // Rocket position: launch from Earth, arc up, then straight toward top
+    const startY = eY - eR - 20;
+    const endY   = H * 0.18;
+    const rocketY = lr(startY, endY, ease(ratio));
+    const rocketX = W * 0.5 + sin(ease(ratio) * PI * 0.6) * 22;
+    const rocketScale = lr(0.85, 0.52, ratio);
+
+    /* ── Contrail ── */
+    const contrailA = cl(ratio * 3, 0, 1);
+    drawContrail(rocketX, rocketY, W * 0.5, eY - eR, contrailA);
+
+    /* ── Stage sep flash ── */
+    const sepFlash = cl((sepRatio - 0.1) * 5, 0, 1) * cl(1 - (sepRatio - 0.3) * 5, 0, 1);
+    if (sepFlash > 0) {
+      drawStageSep(rocketX, rocketY + 5 * rocketScale, sepFlash);
     }
 
-    // ── Earth at bottom ───────────────────────────────────────────────────
-    const earthY  = H - 70;
-    const earthFade = clamp(1 - ratio * 1.6, 0.08, 1);
-    drawEarth(W * 0.5, earthY, 44, earthFade);
+    /* ── Rocket ── */
+    const rocketAlpha = cl(ratio < 0.88 ? 1 : 1 - (ratio - 0.88) * 8, 0, 1);
+    const exhaustFlicker = pref ? 0.85 : 0.65 + 0.35 * sin(tick * 0.28 + sin(tick * 0.17) * 0.5);
+    const exhaustA = cl(ratio < 0.82 ? exhaustFlicker : (1 - ratio) * 6, 0, 1);
+    drawRocket(rocketX, rocketY, rocketScale, rocketAlpha, exhaustA, tick, ratio);
+    emitParticles(rocketX, rocketY, rocketScale, exhaustA, inSpace);
+    drawParticles();
 
-    // Launch pad (only at start)
-    if (ratio < 0.08) {
-      drawLaunchpad(W * 0.5, earthY - 44, clamp(1 - ratio * 14, 0, 1));
-    }
+    /* ── Orbit path ── */
+    const orbitA = cl((ratio - 0.72) * 4, 0, 1);
+    const orbitCY = H * 0.17;
+    if (orbitA > 0) drawOrbit(W * 0.5, orbitCY, 68, 18, orbitA);
 
-    // ── Flight trail ──────────────────────────────────────────────────────
-    const trailPts = buildTrailPoints(ratio);
-    drawFlightTrail(trailPts, clamp(ratio * 2.5, 0, 1));
-
-    // ── Rocket position ───────────────────────────────────────────────────
-    const rocketStartY = earthY - 36;
-    const rocketEndY   = H * 0.22 - 8;
-    const rocketX = W * 0.5 + Math.sin(easeInOut(ratio) * Math.PI * 0.8) * 18;
-    const rocketY = lerp(rocketStartY, rocketEndY, easeInOut(ratio));
-
-    const rocketScale = lerp(1, 0.6, ratio);
-    const rocketAlpha = clamp(ratio < 0.88 ? 1 : 1 - (ratio - 0.88) * 8, 0, 1);
-    const exhaustA    = clamp(ratio < 0.85 ? (0.7 + Math.sin(tick * 0.22) * 0.3) : (1 - ratio) * 7, 0, 1);
-
-    drawRocket(rocketX, rocketY, rocketScale, rocketAlpha, exhaustA, tick);
-
-    // ── Exhaust particle emit ─────────────────────────────────────────────
-    if (!prefersReducedMotion && exhaustA > 0.1 && tick % 2 === 0) {
-      exhaust.push({
-        x:    rocketX + (Math.random() - 0.5) * 5 * rocketScale,
-        y:    rocketY + 24 * rocketScale,
-        vx:   (Math.random() - 0.5) * 1.2,
-        vy:   Math.random() * 1.8 + 0.5,
-        life: 1,
-        r:    Math.random() * 3.5 + 1,
-        hue:  20 + Math.random() * 25,
-      });
-    }
-
-    // Draw & age particles
-    for (let i = exhaust.length - 1; i >= 0; i--) {
-      const p = exhaust[i];
-      p.x  += p.vx;
-      p.y  += p.vy;
-      p.vy += 0.04;
-      p.life -= 0.038;
-      if (p.life <= 0) { exhaust.splice(i, 1); continue; }
-      const a = p.life;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
-      ctx.fillStyle = `hsla(${p.hue}, 95%, ${55 + p.life * 30}%, ${a * 0.82})`;
-      ctx.fill();
-    }
-
-    // ── Satellite (fades in near the end) ────────────────────────────────
-    const satA = clamp((ratio - 0.82) / 0.18, 0, 1);
+    /* ── Satellite ── */
+    const satA = cl((ratio - 0.84) / 0.16, 0, 1);
     if (satA > 0) {
-      const orbitRX = 55, orbitRY = 16;
-      const angle   = tick * 0.012;
-      const satX    = W * 0.5 + Math.cos(angle) * orbitRX;
-      const satY    = H * 0.18 + Math.sin(angle) * orbitRY;
-      drawSatellite(satX, satY, satA, satA, angle);
+      const angle = tick * 0.010;
+      const satX  = W * 0.5 + cos(angle) * 68;
+      const satY  = orbitCY + sin(angle) * 18;
+      const satScale = lr(0, 1.1, satA) * 0.78;
+      drawSatellite(satX, satY, satScale, satA, tick);
+
+      // Orbital sunrise glow
+      if (satA > 0.5) {
+        const sunA = cl((satA - 0.5) * 2, 0, 1) * (0.5 + 0.5 * sin(angle * 2));
+        const sunG = ctx.createRadialGradient(W * 0.82, orbitCY - 30, 0, W * 0.82, orbitCY - 30, 50);
+        sunG.addColorStop(0, `rgba(255, 200, 80, ${sunA * 0.55})`);
+        sunG.addColorStop(0.4,`rgba(255, 140, 40, ${sunA * 0.25})`);
+        sunG.addColorStop(1,  'rgba(255, 80, 0, 0)');
+        ctx.beginPath(); ctx.arc(W * 0.82, orbitCY - 30, 50, 0, PI*2);
+        ctx.fillStyle = sunG; ctx.fill();
+      }
     }
 
-    // ── Right edge vignette ───────────────────────────────────────────────
-    const vig = ctx.createLinearGradient(0, 0, W, 0);
-    vig.addColorStop(0, 'rgba(3, 7, 20, 0.55)');
-    vig.addColorStop(0.35, 'rgba(3, 7, 20, 0)');
-    vig.addColorStop(1, 'rgba(3, 7, 20, 0)');
-    ctx.fillStyle = vig;
-    ctx.fillRect(0, 0, W, H);
+    /* ── Left edge blend ── */
+    const edgeG = ctx.createLinearGradient(0, 0, 28, 0);
+    edgeG.addColorStop(0, 'rgba(2, 5, 14, 0.75)');
+    edgeG.addColorStop(1, 'rgba(2, 5, 14, 0)');
+    ctx.fillStyle = edgeG;
+    ctx.fillRect(0, 0, 28, H);
   }
 
-  // ── Animation loop ───────────────────────────────────────────────────────
-  function journeyLoop() {
+  /* ── Animation loop ── */
+  function loop() {
     render();
-    state.journeyAnimFrame = requestAnimationFrame(journeyLoop);
+    state.journeyAnimFrame = requestAnimationFrame(loop);
   }
 
   resize();
-  if (prefersReducedMotion) {
+  if (pref) {
     render();
   } else {
-    journeyLoop();
+    loop();
   }
 
+  let rzt;
   window.addEventListener('resize', () => {
-    resize();
-    if (prefersReducedMotion) render();
+    clearTimeout(rzt);
+    rzt = setTimeout(() => {
+      if (state.journeyAnimFrame) cancelAnimationFrame(state.journeyAnimFrame);
+      resize();
+      pref ? render() : loop();
+    }, 100);
   });
 }
 
