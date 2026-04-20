@@ -21,7 +21,6 @@ const ALLOWED_EXTENSIONS = new Set([
 const state = {
   currentStep: 1,
   selectedFiles: [],  // File objects sélectionnés par l'utilisateur
-  orbitalAnimationFrame: null,
 };
 
 // ── Références DOM ───────────────────────────────────────────────────────────
@@ -52,9 +51,6 @@ const els = {
   fileList:        $('file-list'),
   confirmIdBlock:  $('confirm-id-block'),
   confirmIdValue:  $('confirm-id-value'),
-  spaceCanvas:     $('space-canvas'),
-  introVisual:     document.querySelector('.intro-visual'),
-  missionCards:    document.querySelectorAll('.mission-card'),
 };
 
 // ── Initialisation ───────────────────────────────────────────────────────────
@@ -119,8 +115,6 @@ function init() {
       });
     }
   });
-
-  initOrbitalExperience();
 }
 
 // ── Navigation ───────────────────────────────────────────────────────────────
@@ -576,112 +570,5 @@ function showGlobalError(message) {
 }
 
 // ── Lancement ────────────────────────────────────────────────────────────────
-
-function initOrbitalExperience() {
-  initMissionCards();
-  initIntroParallax();
-  initSpaceCanvas();
-}
-
-function initMissionCards() {
-  if (!els.missionCards || els.missionCards.length === 0) return;
-
-  els.missionCards.forEach((card, idx) => {
-    card.style.opacity = '0';
-    card.style.transform = 'translateY(10px)';
-    card.style.transition = `opacity 450ms ease ${idx * 70}ms, transform 450ms ease ${idx * 70}ms`;
-  });
-
-  requestAnimationFrame(() => {
-    els.missionCards.forEach((card) => {
-      card.style.opacity = '1';
-      card.style.transform = 'translateY(0)';
-    });
-  });
-}
-
-function initIntroParallax() {
-  if (!els.introVisual || window.matchMedia('(max-width: 800px)').matches) return;
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-  const maxTilt = 5;
-  document.addEventListener('pointermove', (event) => {
-    const x = (event.clientX / window.innerWidth) - 0.5;
-    const y = (event.clientY / window.innerHeight) - 0.5;
-    const rotateY = x * maxTilt;
-    const rotateX = -y * maxTilt;
-    els.introVisual.style.transform = `translateY(8px) perspective(900px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg)`;
-  });
-
-  document.addEventListener('pointerleave', () => {
-    els.introVisual.style.transform = 'translateY(8px)';
-  });
-}
-
-function initSpaceCanvas() {
-  const canvas = els.spaceCanvas;
-  if (!canvas) return;
-
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-
-  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const maxStars = window.matchMedia('(max-width: 540px)').matches ? 45 : 90;
-  const stars = [];
-
-  function resizeCanvas() {
-    const ratio = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.floor(window.innerWidth * ratio);
-    canvas.height = Math.floor(window.innerHeight * ratio);
-    canvas.style.width = `${window.innerWidth}px`;
-    canvas.style.height = `${window.innerHeight}px`;
-    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-  }
-
-  function buildStars() {
-    stars.length = 0;
-    for (let i = 0; i < maxStars; i += 1) {
-      stars.push({
-        x: Math.random() * window.innerWidth,
-        y: Math.random() * window.innerHeight,
-        radius: Math.random() * 1.2 + 0.2,
-        alpha: Math.random() * 0.6 + 0.2,
-        speed: Math.random() * 0.16 + 0.03,
-      });
-    }
-  }
-
-  function draw() {
-    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-    stars.forEach((star) => {
-      ctx.beginPath();
-      ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(175, 220, 255, ${star.alpha})`;
-      ctx.fill();
-
-      if (!prefersReducedMotion) {
-        star.y += star.speed;
-        if (star.y > window.innerHeight + 2) {
-          star.y = -4;
-          star.x = Math.random() * window.innerWidth;
-        }
-      }
-    });
-
-    if (!prefersReducedMotion) {
-      state.orbitalAnimationFrame = requestAnimationFrame(draw);
-    }
-  }
-
-  resizeCanvas();
-  buildStars();
-  draw();
-
-  window.addEventListener('resize', () => {
-    resizeCanvas();
-    buildStars();
-    draw();
-  });
-}
 
 document.addEventListener('DOMContentLoaded', init);

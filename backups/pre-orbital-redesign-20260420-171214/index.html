@@ -18,15 +18,6 @@
 </head>
 <body>
 
-<div class="space-stage" aria-hidden="true">
-  <div class="space-nebula nebula-a"></div>
-  <div class="space-nebula nebula-b"></div>
-  <div class="space-nebula nebula-c"></div>
-  <div class="space-grid"></div>
-  <div class="space-scanline"></div>
-  <canvas class="space-canvas" id="space-canvas"></canvas>
-</div>
-
 <div id="app">
 
   <!-- ────────────────────────────────────────────────
@@ -84,30 +75,6 @@
           </div>
         </div>
 
-        <div class="intro-mission-grid">
-          <article class="mission-card">
-            <p class="mission-label">Poussée conversion</p>
-            <p class="mission-value">+148%</p>
-            <div class="mission-bar"><span style="--bar:84%"></span></div>
-          </article>
-          <article class="mission-card">
-            <p class="mission-label">Pipeline qualifié</p>
-            <p class="mission-value">11 étapes</p>
-            <div class="mission-bar"><span style="--bar:91%"></span></div>
-          </article>
-          <article class="mission-card mission-card-wide">
-            <p class="mission-label">Mode démonstration technique</p>
-            <div class="mission-video">
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <p class="mission-note">Habillage orbital calibré mobile + desktop</p>
-          </article>
-        </div>
-
         <button class="btn btn-primary btn-cta" id="btn-start">
           Commencer
           <span class="btn-icon" aria-hidden="true">→</span>
@@ -140,15 +107,6 @@
         <div class="visual-badge-sent">
           <span>✓</span> Maquette envoyée
         </div>
-        <div class="orbit-hud">
-          <p class="orbit-hud-title">Mission Control</p>
-          <p class="orbit-hud-line">Trajectory: <strong>Locked</strong></p>
-          <p class="orbit-hud-line">Viewport: <strong>Adaptive</strong></p>
-          <p class="orbit-hud-line">Latency: <strong>Realtime</strong></p>
-        </div>
-        <span class="visual-orbit orbit-1"></span>
-        <span class="visual-orbit orbit-2"></span>
-        <span class="launch-pulse"></span>
       </div>
 
     </div>
@@ -162,7 +120,6 @@
     <!-- Barre de progression -->
     <div class="progress-bar-wrapper" id="progress-wrapper">
       <div class="progress-bar-inner">
-        <p class="progress-kicker">Mission astr.studio - Qualification orbitale</p>
         <div class="progress-meta">
           <span class="progress-label">
             Étape <strong id="step-num">1</strong> sur <strong id="step-total">11</strong>
