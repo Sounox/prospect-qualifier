@@ -613,17 +613,17 @@ function initIntroParallax() {
   if (!els.introVisual || window.matchMedia('(max-width: 800px)').matches) return;
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  const maxTilt = 5;
+  const maxTilt = 3;
   document.addEventListener('pointermove', (event) => {
     const x = (event.clientX / window.innerWidth) - 0.5;
     const y = (event.clientY / window.innerHeight) - 0.5;
     const rotateY = x * maxTilt;
     const rotateX = -y * maxTilt;
-    els.introVisual.style.transform = `translateY(8px) perspective(900px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg)`;
+    els.introVisual.style.transform = `translateY(0) perspective(900px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg)`;
   });
 
   document.addEventListener('pointerleave', () => {
-    els.introVisual.style.transform = 'translateY(8px)';
+    els.introVisual.style.transform = 'translateY(0)';
   });
 }
 
