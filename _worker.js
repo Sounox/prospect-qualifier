@@ -23,6 +23,20 @@ class SmtpClient {
     this.reader = this.socket.readable.getReader();
   }
 
+  async upgradeToTls() {
+    if (!this.socket?.startTls) {
+      throw new Error('STARTTLS non supporte par le socket');
+    }
+
+    try { this.reader?.releaseLock(); } catch (_) {}
+    try { this.writer?.releaseLock(); } catch (_) {}
+
+    this.buffer = '';
+    this.socket = this.socket.startTls();
+    this.writer = this.socket.writable.getWriter();
+    this.reader = this.socket.readable.getReader();
+  }
+
   async readLine() {
     while (true) {
       const idx = this.buffer.indexOf('\n');
@@ -62,6 +76,7 @@ class SmtpClient {
     try { this.reader?.releaseLock(); } catch (_) {}
     try { await this.writer?.close(); } catch (_) {}
     try { this.writer?.releaseLock(); } catch (_) {}
+    try { await this.socket?.close(); } catch (_) {}
   }
 }
 
@@ -170,6 +185,68 @@ function getSmtpCandidates(env) {
   });
 }
 
+function parseAuthMethods(ehloText) {
+  for (const line of ehloText.split('\n')) {
+    const match = line.match(/^250[- ]AUTH\s+(.+)$/i);
+    if (match) {
+      return match[1].trim().toUpperCase().split(/\s+/).filter(Boolean);
+    }
+  }
+  return [];
+}
+
+async function smtpAuthLogin(smtp, user, pass) {
+  const auth = await smtp.cmd('AUTH LOGIN');
+  if (auth.code !== 334) throw new Error(`AUTH LOGIN: ${auth.text}`);
+
+  const u = await smtp.cmd(btoa(user));
+  if (u.code !== 334) throw new Error(`AUTH USER: ${u.text}`);
+
+  const p = await smtp.cmd(btoa(pass));
+  if (p.code !== 235) throw new Error(`AUTH PASS: ${p.text}`);
+}
+
+async function smtpAuthPlain(smtp, user, pass) {
+  const token = btoa(`\u0000${user}\u0000${pass}`);
+  const auth = await smtp.cmd(`AUTH PLAIN ${token}`);
+
+  if (auth.code === 235) return;
+
+  if (auth.code === 334) {
+    const p = await smtp.cmd(token);
+    if (p.code === 235) return;
+    throw new Error(`AUTH PLAIN CHALLENGE: ${p.text}`);
+  }
+
+  throw new Error(`AUTH PLAIN: ${auth.text}`);
+}
+
+async function smtpAuthenticate(smtp, ehloText, user, pass) {
+  const methods = parseAuthMethods(ehloText);
+  const errors = [];
+  const tries = [];
+
+  if (methods.includes('PLAIN')) tries.push(() => smtpAuthPlain(smtp, user, pass));
+  if (methods.includes('LOGIN')) tries.push(() => smtpAuthLogin(smtp, user, pass));
+
+  if (!tries.length) {
+    // Certains serveurs n'annoncent pas clairement AUTH; on tente les 2 stratégies.
+    tries.push(() => smtpAuthLogin(smtp, user, pass));
+    tries.push(() => smtpAuthPlain(smtp, user, pass));
+  }
+
+  for (const tryAuth of tries) {
+    try {
+      await tryAuth();
+      return;
+    } catch (err) {
+      errors.push(err.message);
+    }
+  }
+
+  throw new Error(`AUTH failed: ${errors.join(' | ')}`);
+}
+
 async function sendViaSmtp(env, payload, candidate) {
   const smtp = new SmtpClient();
   const heloHost = env.SMTP_HELO_HOST || 'launch.astr.studio';
@@ -179,17 +256,24 @@ async function sendViaSmtp(env, payload, candidate) {
     const gr = await smtp.readResponse();
     if (gr.code !== 220) throw new Error(`Greeting: ${gr.text}`);
 
-    const ehlo = await smtp.cmd(`EHLO ${heloHost}`);
+    let ehlo = await smtp.cmd(`EHLO ${heloHost}`);
     if (ehlo.code !== 250) throw new Error(`EHLO: ${ehlo.text}`);
 
-    const auth = await smtp.cmd('AUTH LOGIN');
-    if (auth.code !== 334) throw new Error(`AUTH: ${auth.text}`);
+    if (candidate.secureTransport === 'starttls') {
+      if (!/250[- ]STARTTLS/i.test(ehlo.text)) {
+        throw new Error(`STARTTLS non propose: ${ehlo.text}`);
+      }
 
-    const u = await smtp.cmd(btoa(env.SMTP_USER));
-    if (u.code !== 334) throw new Error(`AUTH USER: ${u.text}`);
+      const startTls = await smtp.cmd('STARTTLS');
+      if (startTls.code !== 220) throw new Error(`STARTTLS: ${startTls.text}`);
 
-    const p = await smtp.cmd(btoa(env.SMTP_PASS));
-    if (p.code !== 235) throw new Error(`AUTH PASS: ${p.text}`);
+      await smtp.upgradeToTls();
+
+      ehlo = await smtp.cmd(`EHLO ${heloHost}`);
+      if (ehlo.code !== 250) throw new Error(`EHLO (post-STARTTLS): ${ehlo.text}`);
+    }
+
+    await smtpAuthenticate(smtp, ehlo.text, env.SMTP_USER, env.SMTP_PASS);
 
     const mf = await smtp.cmd(`MAIL FROM:<${env.FROM_EMAIL}>`);
     if (mf.code !== 250) throw new Error(`MAIL FROM: ${mf.text}`);
