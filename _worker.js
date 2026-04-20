@@ -165,10 +165,41 @@ function parseSecureTransport(value, fallback) {
   return fallback;
 }
 
-function getSmtpCandidates(env) {
-  const configuredPort = parseInt(env.SMTP_PORT || '465', 10);
-  const basePort = Number.isFinite(configuredPort) ? configuredPort : 465;
-  const baseSecure = parseSecureTransport(env.SMTP_SECURE, basePort === 587 ? 'starttls' : 'on');
+function pickEnv(env, keys, fallback = '') {
+  for (const key of keys) {
+    const raw = env?.[key];
+    if (typeof raw === 'string') {
+      const value = raw.trim();
+      if (value) return value;
+    }
+  }
+  return fallback;
+}
+
+function resolveMailConfig(env) {
+  const smtpPort = parseInt(pickEnv(env, ['SMTP_PORT', 'MAIL_PORT'], '465'), 10);
+  const safePort = Number.isFinite(smtpPort) ? smtpPort : 465;
+
+  return {
+    smtpHost: pickEnv(env, ['SMTP_HOST', 'MAIL_HOST', 'SMTP_SERVER']),
+    smtpPort: safePort,
+    smtpSecure: parseSecureTransport(
+      pickEnv(env, ['SMTP_SECURE', 'MAIL_SECURE']),
+      safePort === 587 ? 'starttls' : 'on'
+    ),
+    smtpUser: pickEnv(env, ['SMTP_USER', 'SMTP_USERNAME', 'MAIL_USER', 'MAIL_USERNAME']),
+    smtpPass: pickEnv(env, ['SMTP_PASS', 'SMTP_PASSWORD', 'MAIL_PASS', 'MAIL_PASSWORD']),
+    fromEmail: pickEnv(env, ['FROM_EMAIL', 'MAIL_FROM', 'SMTP_FROM']),
+    toEmail: pickEnv(env, ['TO_EMAIL', 'MAIL_TO', 'SMTP_TO']),
+    heloHost: pickEnv(env, ['SMTP_HELO_HOST', 'MAIL_HELO_HOST'], 'launch.astr.studio'),
+    agencyName: pickEnv(env, ['AGENCY_NAME'], 'astr.studio'),
+    mailChannelsApiKey: pickEnv(env, ['MAILCHANNELS_API_KEY', 'MAILCHANNELS_APIKEY', 'MC_API_KEY']),
+  };
+}
+
+function getSmtpCandidates(config) {
+  const basePort = config.smtpPort;
+  const baseSecure = config.smtpSecure;
 
   const candidates = [
     { port: basePort, secureTransport: baseSecure, label: 'configured' },
@@ -247,16 +278,15 @@ async function smtpAuthenticate(smtp, ehloText, user, pass) {
   throw new Error(`AUTH failed: ${errors.join(' | ')}`);
 }
 
-async function sendViaSmtp(env, payload, candidate) {
+async function sendViaSmtp(config, payload, candidate) {
   const smtp = new SmtpClient();
-  const heloHost = env.SMTP_HELO_HOST || 'launch.astr.studio';
-  await smtp.connect(env.SMTP_HOST, candidate.port, candidate.secureTransport);
+  await smtp.connect(config.smtpHost, candidate.port, candidate.secureTransport);
 
   try {
     const gr = await smtp.readResponse();
     if (gr.code !== 220) throw new Error(`Greeting: ${gr.text}`);
 
-    let ehlo = await smtp.cmd(`EHLO ${heloHost}`);
+    let ehlo = await smtp.cmd(`EHLO ${config.heloHost}`);
     if (ehlo.code !== 250) throw new Error(`EHLO: ${ehlo.text}`);
 
     if (candidate.secureTransport === 'starttls') {
@@ -269,24 +299,24 @@ async function sendViaSmtp(env, payload, candidate) {
 
       await smtp.upgradeToTls();
 
-      ehlo = await smtp.cmd(`EHLO ${heloHost}`);
+      ehlo = await smtp.cmd(`EHLO ${config.heloHost}`);
       if (ehlo.code !== 250) throw new Error(`EHLO (post-STARTTLS): ${ehlo.text}`);
     }
 
-    await smtpAuthenticate(smtp, ehlo.text, env.SMTP_USER, env.SMTP_PASS);
+    await smtpAuthenticate(smtp, ehlo.text, config.smtpUser, config.smtpPass);
 
-    const mf = await smtp.cmd(`MAIL FROM:<${env.FROM_EMAIL}>`);
+    const mf = await smtp.cmd(`MAIL FROM:<${config.fromEmail}>`);
     if (mf.code !== 250) throw new Error(`MAIL FROM: ${mf.text}`);
 
-    const rt = await smtp.cmd(`RCPT TO:<${env.TO_EMAIL}>`);
+    const rt = await smtp.cmd(`RCPT TO:<${config.toEmail}>`);
     if (rt.code !== 250 && rt.code !== 251) throw new Error(`RCPT TO: ${rt.text}`);
 
     const di = await smtp.cmd('DATA');
     if (di.code !== 354) throw new Error(`DATA: ${di.text}`);
 
     const msg = buildMime({
-      from: `"${env.AGENCY_NAME || 'astr.studio'}" <${env.FROM_EMAIL}>`,
-      to: env.TO_EMAIL,
+      from: `"${config.agencyName}" <${config.fromEmail}>`,
+      to: config.toEmail,
       subject: payload.subject,
       html: payload.html,
       text: payload.text,
@@ -303,10 +333,14 @@ async function sendViaSmtp(env, payload, candidate) {
   }
 }
 
-async function sendViaMailChannels(env, payload) {
+async function sendViaMailChannels(config, payload) {
+  if (!config.fromEmail || !config.toEmail) {
+    throw new Error('MAILCHANNELS config missing (FROM_EMAIL/TO_EMAIL)');
+  }
+
   const reqBody = {
-    personalizations: [{ to: [{ email: env.TO_EMAIL }] }],
-    from: { email: env.FROM_EMAIL, name: env.AGENCY_NAME || 'astr.studio' },
+    personalizations: [{ to: [{ email: config.toEmail }] }],
+    from: { email: config.fromEmail, name: config.agencyName },
     subject: payload.subject,
     content: [
       { type: 'text/plain', value: payload.text },
@@ -323,9 +357,14 @@ async function sendViaMailChannels(env, payload) {
     }));
   }
 
+  const headers = { 'content-type': 'application/json' };
+  if (config.mailChannelsApiKey) {
+    headers['X-Api-Key'] = config.mailChannelsApiKey;
+  }
+
   const res = await fetch('https://api.mailchannels.net/tx/v1/send', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers,
     body: JSON.stringify(reqBody),
   });
 
@@ -336,24 +375,31 @@ async function sendViaMailChannels(env, payload) {
 }
 
 async function sendEmail(env, payload) {
+  const config = resolveMailConfig(env);
   const errors = [];
-  const hasSmtpCreds = Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
+  const hasSmtpCreds = Boolean(
+    config.smtpHost &&
+    config.smtpUser &&
+    config.smtpPass &&
+    config.fromEmail &&
+    config.toEmail
+  );
 
   if (hasSmtpCreds) {
-    for (const candidate of getSmtpCandidates(env)) {
+    for (const candidate of getSmtpCandidates(config)) {
       try {
-        await sendViaSmtp(env, payload, candidate);
+        await sendViaSmtp(config, payload, candidate);
         return;
       } catch (err) {
         errors.push(`SMTP ${candidate.port}/${candidate.secureTransport} (${candidate.label}): ${err.message}`);
       }
     }
   } else {
-    errors.push('SMTP config missing (SMTP_HOST/SMTP_USER/SMTP_PASS)');
+    errors.push('SMTP config missing (host/user/pass/from/to)');
   }
 
   try {
-    await sendViaMailChannels(env, payload);
+    await sendViaMailChannels(config, payload);
     return;
   } catch (err) {
     errors.push(`MAILCHANNELS: ${err.message}`);
@@ -508,7 +554,8 @@ async function handleSubmit(request, env) {
     timeZone: 'Europe/Paris', weekday: 'long', year: 'numeric',
     month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
-  const agency = env.AGENCY_NAME || 'astr.studio';
+  const mailConfig = resolveMailConfig(env);
+  const agency = mailConfig.agencyName;
   const companyName = getText(fd, 'company_name') || 'Entreprise';
   const contactName = getText(fd, 'contact_name') || 'Contact';
   const subject = `[Nouveau prospect maquette] ${companyName} â€“ ${contactName}`;
@@ -521,14 +568,9 @@ async function handleSubmit(request, env) {
       attachments,
     });
   } catch (err) {
-    const raw = String(err?.message || err || 'unknown');
-    const debug = raw.replace(/[A-Za-z0-9+/=]{18,}/g, '[redacted]').slice(0, 380);
-    console.error('[MAIL]', debug);
-    return Response.json({
-      success: false,
-      error: "Erreur lors de l'envoi. Veuillez rÃ©essayer.",
-      debug,
-    }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8).toUpperCase();
+    console.error(`[MAIL ${errorId}]`, String(err?.message || err || 'unknown'));
+    return Response.json({ success: false, error: "Erreur lors de l'envoi. Veuillez rÃ©essayer." }, { status: 500 });
   }
 
   return Response.json({ success: true, submissionId });
