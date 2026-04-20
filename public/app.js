@@ -40,6 +40,7 @@ const els = {
   progressFill: $('progress-fill'),
   progressPct:  $('progress-pct'),
   progressTrack: $('progress-track'),
+  progressRocket: $('progress-rocket'),
   btnStart:     $('btn-start'),
   btnBack:      $('btn-back'),
   btnNext:      $('btn-next'),
@@ -62,6 +63,7 @@ const els = {
 function init() {
   // Timestamp de chargement de la page (anti-spam)
   els.loadTime.value = Date.now().toString();
+  document.body.dataset.screen = 'intro';
 
   // Afficher le total d'étapes
   els.stepTotal.textContent = TOTAL_STEPS;
@@ -153,6 +155,7 @@ function goBack() {
 function showScreen(name) {
   Object.values(screens).forEach((s) => (s.hidden = true));
   screens[name].hidden = false;
+  document.body.dataset.screen = name;
 }
 
 function showStep(stepNumber) {
@@ -184,11 +187,17 @@ function showStep(stepNumber) {
 }
 
 function updateProgressBar() {
-  const pct = Math.round((state.currentStep / TOTAL_STEPS) * 100);
+  const ratio = state.currentStep / TOTAL_STEPS;
+  const pct = Math.round(ratio * 100);
   els.progressFill.style.width = `${pct}%`;
   els.progressPct.textContent = `${pct}%`;
   els.stepNum.textContent = state.currentStep;
   els.progressTrack.setAttribute('aria-valuenow', pct);
+  document.documentElement.style.setProperty('--progress-ratio', ratio.toFixed(4));
+
+  if (els.progressRocket) {
+    els.progressRocket.style.left = `${pct}%`;
+  }
 }
 
 function scrollToTop() {
