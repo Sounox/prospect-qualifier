@@ -1815,52 +1815,87 @@ body {
    JOURNEY SIDE PANEL
 ═══════════════════════════════════════════════════════════════════════════ */
 .journey-panel {
-  display: none; /* shown only on wide screens via media query below */
+  display: none;
   position: fixed;
-  right: 0;
   top: 57px;
   bottom: 0;
-  width: 320px;
+  width: 280px;
   pointer-events: none;
   z-index: 3;
   overflow: hidden;
-  border-left: 1px solid rgba(60, 120, 220, 0.18);
-  box-shadow: -12px 0 48px rgba(20, 80, 200, 0.12);
 }
 
-/* Left-edge glow separator */
-.journey-panel::before {
+/* ── Right panel ── */
+.journey-panel--right {
+  right: 0;
+  border-left: 1px solid rgba(60, 120, 220, 0.16);
+  box-shadow: -10px 0 40px rgba(20, 80, 200, 0.1);
+}
+
+/* Right panel: glow on left edge */
+.journey-panel--right::before {
   content: '';
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
+  top: 0; bottom: 0; left: 0;
   width: 1px;
   background: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(80, 160, 255, 0.35) 30%,
-    rgba(100, 180, 255, 0.5) 50%,
-    rgba(80, 160, 255, 0.35) 70%,
+    rgba(80, 160, 255, 0.4) 35%,
+    rgba(100, 180, 255, 0.55) 50%,
+    rgba(80, 160, 255, 0.4) 65%,
     transparent 100%
   );
-  pointer-events: none;
   z-index: 2;
 }
 
-/* Left fade blending with main content */
-.journey-panel::after {
+/* Right panel: inner left fade */
+.journey-panel--right::after {
   content: '';
   position: absolute;
   top: 0; bottom: 0; left: 0;
-  width: 40px;
-  background: linear-gradient(90deg, rgba(3, 7, 20, 0.65), transparent);
-  pointer-events: none;
+  width: 48px;
+  background: linear-gradient(90deg, rgba(3, 7, 20, 0.7), transparent);
   z-index: 1;
 }
 
-#journey-canvas {
-  width: 320px;
+/* ── Left panel ── */
+.journey-panel--left {
+  left: 0;
+  border-right: 1px solid rgba(60, 120, 220, 0.16);
+  box-shadow: 10px 0 40px rgba(20, 80, 200, 0.1);
+}
+
+/* Left panel: glow on right edge */
+.journey-panel--left::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; right: 0;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(80, 160, 255, 0.4) 35%,
+    rgba(100, 180, 255, 0.55) 50%,
+    rgba(80, 160, 255, 0.4) 65%,
+    transparent 100%
+  );
+  z-index: 2;
+}
+
+/* Left panel: inner right fade */
+.journey-panel--left::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; right: 0;
+  width: 48px;
+  background: linear-gradient(270deg, rgba(3, 7, 20, 0.7), transparent);
+  z-index: 1;
+}
+
+#journey-canvas,
+#journey-canvas-left {
+  width: 100%;
   height: 100%;
   display: block;
 }
@@ -1874,15 +1909,22 @@ body {
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(140, 195, 255, 0.65);
+  color: rgba(140, 195, 255, 0.6);
   white-space: nowrap;
-  transition: opacity 0.5s ease;
-  text-shadow: 0 0 12px rgba(80, 160, 255, 0.4);
+  transition: color 0.5s ease, opacity 0.5s ease;
+  text-shadow: 0 0 14px rgba(80, 160, 255, 0.5);
+  z-index: 3;
 }
 
-/* ── Show journey panel on wide screens ── */
+/* ── Show panels on wide screens ── */
 @media (min-width: 1100px) {
-  .journey-panel {
+  .journey-panel--right {
+    display: block;
+  }
+}
+
+@media (min-width: 1380px) {
+  .journey-panel--left {
     display: block;
   }
 }

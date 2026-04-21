@@ -159,10 +159,14 @@
   ──────────────────────────────────────────────── -->
   <section id="screen-form" class="screen screen-form" aria-label="Questionnaire" hidden>
 
-    <!-- Journey side panel (desktop decoration) -->
-    <div class="journey-panel" id="journey-panel" aria-hidden="true">
+    <!-- Journey side panels (desktop decoration) -->
+    <div class="journey-panel journey-panel--left" id="journey-panel-left" aria-hidden="true">
+      <canvas id="journey-canvas-left"></canvas>
+      <div class="journey-label" id="journey-label-left">Décollage</div>
+    </div>
+    <div class="journey-panel journey-panel--right" id="journey-panel" aria-hidden="true">
       <canvas id="journey-canvas"></canvas>
-      <div class="journey-label" id="journey-label">Décollage</div>
+      <div class="journey-label" id="journey-label">En orbite</div>
     </div>
 
     <!-- Barre de progression -->
