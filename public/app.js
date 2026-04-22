@@ -232,7 +232,7 @@ const MoonRenderer = (() => {
   return {
     drawSphere(ctx, cx, cy, R, rot) {
       const rR = Math.min(R, 320);
-      const key = `${rR}:${Math.round(rot * 60)}`;  // recalcule tous les ~1°
+      const key = `${rR}:${Math.round(rot * 10)}`;  // recalcule tous les ~6°
       let entry = cache.get(key);
       if (!entry) {
         const buf = renderR(rR, rot);
@@ -241,7 +241,7 @@ const MoonRenderer = (() => {
         off.width = rR * 2; off.height = rR * 2;
         off.getContext("2d").putImageData(id, 0, 0);
         entry = off;
-        if (cache.size > 24) cache.delete(cache.keys().next().value);
+        if (cache.size > 64) cache.delete(cache.keys().next().value);
         cache.set(key, entry);
       }
       ctx.drawImage(entry, cx - R, cy - R, R * 2, R * 2);
@@ -565,7 +565,7 @@ function initConsoleEarth() {
     ctx.beginPath(); ctx.arc(cx, cy, R * 1.45, 0, Math.PI * 2); ctx.fill();
 
     // Lune procédurale (MoonRenderer)
-    MoonRenderer.drawSphere(ctx, cx, cy, R, t * 0.0005);
+    MoonRenderer.drawSphere(ctx, cx, cy, R, t * 0.003);
 
     // Rim argenté
     ctx.save();
