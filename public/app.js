@@ -1,9 +1,9 @@
-/* ─────────────────────────────────────────────────────
+/* -----------------------------------------------------
    PHOTOREALISTIC EARTH TEXTURE
    Uses a CORS-enabled NASA Blue Marble equirectangular
    image from Wikimedia Commons and renders it to a sphere
    via per-pixel inverse projection on an offscreen canvas.
-───────────────────────────────────────────────────────── */
+--------------------------------------------------------- */
 const EARTH_TEXTURE_URL =
   "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/WorldMap-A_non-Frame.png/2048px-WorldMap-A_non-Frame.png";
 const EARTH_NIGHTLIGHTS_FALLBACK =
@@ -48,7 +48,7 @@ const EarthTexture = (() => {
 
   // Cache rendered spheres so we don't re-raycast every frame.
   // Key: R (rounded) + tilt * 10 rounded. We regenerate the sphere when rot
-  // has drifted by > 0.015 rad (~0.86°) — imperceptible otherwise.
+  // has drifted by > 0.015 rad (~0.86 deg), which is visually negligible.
   const sphereCache = new Map();
   function getSphereCanvas(R, tilt) {
     const key = R + ":" + Math.round(tilt * 100);
@@ -134,112 +134,16 @@ const EarthTexture = (() => {
 // Kick off texture load immediately
 EarthTexture.load();
 
-/* ─────────────────────────────────────────────────────
-   LUNE PROCÉDURALE — pre-render de 60 frames async
-   Chaque frame est calculée dans un setTimeout séparé
-   pour ne jamais bloquer le thread principal.
-   L'animation loop fait uniquement drawImage → 60 fps.
-───────────────────────────────────────────────────── */
-const MoonRenderer = (() => {
-  function rng(seed) {
-    let s = seed >>> 0;
-    return () => { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s / 0xffffffff; };
-  }
-  const r = rng(137);
-
-  const MARE = Array.from({length: 7}, () => [
-    (r() - 0.5) * Math.PI * 1.8,
-    (r() - 0.5) * Math.PI * 0.6,
-    0.14 + r() * 0.18,
-  ]);
-  const CRATERS = Array.from({length: 38}, () => [
-    (r() - 0.5) * Math.PI * 2,
-    (r() - 0.5) * 0.9,
-    0.015 + r() * 0.085,
-    0.45 + r() * 0.45,
-  ]);
-
-  const FRAME_COUNT = 60;   // 6° par frame → animation très fluide
-  let _frames  = null;      // null = pas encore prêt
-  let _loaded  = 0;         // 0..1 progression
-  let _started = false;
-
-  function renderFrame(rR, rot) {
-    const diam = rR * 2;
-    const buf  = new Uint8ClampedArray(diam * diam * 4);
-    const lx = -0.28, ly = -0.18, lz = 0.94;
-    for (let py = 0; py < diam; py++) {
-      const dy = (py - rR) / rR;
-      for (let px = 0; px < diam; px++) {
-        const dx = (px - rR) / rR;
-        const d2 = dx * dx + dy * dy;
-        const base = (py * diam + px) * 4;
-        if (d2 > 1) { buf[base + 3] = 0; continue; }
-        const nz = Math.sqrt(1 - d2);
-        const lon = Math.atan2(dx, nz) + rot;
-        let lam = dx * lx + dy * ly + nz * lz;
-        lam = Math.max(0.04, Math.min(1, lam * 0.86 + 0.26));
-        let lum = 0.68
-          + Math.sin(lon * 19 + dy * 13) * 0.04
-          + Math.cos(lon *  7 - dy *  9) * 0.03
-          + Math.sin(lon * 41 + dy * 37) * 0.012;
-        for (const [mLon, mLat, mR] of MARE) {
-          const dLon = Math.sin(lon - mLon), dLat = dy - mLat;
-          const dist = Math.sqrt(dLon * dLon + dLat * dLat);
-          if (dist < mR) lum *= 1 - Math.pow(1 - dist / mR, 1.4) * 0.44;
-        }
-        for (const [cLon, cLat, cR, depth] of CRATERS) {
-          const dLon = Math.sin(lon - cLon), dLat = dy - cLat;
-          const dist = Math.sqrt(dLon * dLon + dLat * dLat);
-          if (dist < cR * 1.35) {
-            const t0 = dist / cR;
-            if      (t0 < 0.65) lum *= 0.48 + t0 * depth;
-            else if (t0 < 1.0)  lum += (1 - lum) * (1 - (t0 - 0.65) / 0.35) * 0.32;
-          }
-        }
-        const rim = Math.pow(1 - nz, 5) * 0.07;
-        const v   = Math.min(1, lum * lam + rim);
-        buf[base] = v * 245; buf[base+1] = v * 245; buf[base+2] = v * 255; buf[base+3] = 255;
-      }
-    }
-    const off = document.createElement("canvas");
-    off.width = diam; off.height = diam;
-    off.getContext("2d").putImageData(new ImageData(buf, diam, diam), 0, 0);
-    return off;
-  }
-
-  return {
-    // Appeler une fois au démarrage. rR = rayon de rendu (120 recommandé).
-    prerender(rR) {
-      if (_started) return;
-      _started = true;
-      const arr = new Array(FRAME_COUNT);
-      let i = 0;
-      const step = () => {
-        if (i >= FRAME_COUNT) { _frames = arr; return; }
-        arr[i] = renderFrame(rR, (i / FRAME_COUNT) * Math.PI * 2);
-        _loaded = (i + 1) / FRAME_COUNT;
-        i++;
-        setTimeout(step, 0);   // yield → thread principal reste réactif
-      };
-      setTimeout(step, 0);
-    },
-
-    isReady()   { return _frames !== null; },
-    progress()  { return _loaded; },
-
-    // Pure drawImage : zéro calcul, 60 fps garantis une fois prêt.
-    drawSphere(ctx, cx, cy, R, rot) {
-      if (!_frames) return false;
-      const norm = ((rot % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-      const idx  = Math.floor((norm / (Math.PI * 2)) * FRAME_COUNT) % FRAME_COUNT;
-      ctx.drawImage(_frames[idx], cx - R, cy - R, R * 2, R * 2);
-      return true;
-    }
-  };
-})();
+/* Ancien moteur lune neutralise pour garder une charge minimale. */
+const MoonRenderer = {
+  prerender() {},
+  isReady() { return false; },
+  progress() { return 0; },
+  drawSphere() { return false; },
+};
 
 const TOTAL_STEPS = 11;
+const STATIC_EARTH_ROT = 1.05;
 
 // Named mission phases — one per step
 const MISSION_PHASES = [
@@ -384,7 +288,8 @@ function validateStep(n) {
     }
     const email = $("#contact_email").value.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { if (err) { err.hidden = false; err.textContent = "⚠ Email invalide."; } return false; }
-    if (!$("#rgpd").checked) { if (err) { err.hidden = false; err.textContent = "⚠ Merci d'accepter la clause RGPD."; } return false; }
+    const rgpd = $("#rgpd");
+    if (!rgpd || !rgpd.checked) { if (err) { err.hidden = false; err.textContent = "⚠ Merci d'accepter la clause RGPD."; } return false; }
   }
   return true;
 }
@@ -408,6 +313,7 @@ function collectAnswers() {
   a.contact_email = $("#contact_email").value.trim();
   a.contact_phone = $("#contact_phone").value.trim();
   a.current_website = $("#current_website").value.trim();
+  a.rgpd = Boolean($("#rgpd")?.checked);
   state.answers = a;
   return a;
 }
@@ -454,6 +360,7 @@ async function submitForm() {
   fd.append("contact_email",  a.contact_email  || "");
   fd.append("contact_phone",  a.contact_phone  || "");
   fd.append("current_website", a.current_website || "");
+  fd.append("rgpd", a.rgpd ? "accepted" : "");
 
   // Anti-spam
   fd.append("website_url", $("#website_url")?.value || "");
@@ -508,7 +415,7 @@ function renderBoardingPass(a) {
   });
 }
 
-/* ── Canvas: intro — LUNE procédurale ─────────────── */
+/* ── Canvas: intro — TERRE photoréaliste (statique) ── */
 function initConsoleEarth() {
   const canvas = $("#console-earth-canvas");
   if (!canvas) return;
@@ -526,9 +433,6 @@ function initConsoleEarth() {
   resize();
   window.addEventListener("resize", resize);
 
-  // Lance le pre-render async (rR=120 → ~1 sec non-bloquante, puis 60 fps purs)
-  MoonRenderer.prerender(120);
-
   const stars = Array.from({length: 80}, () => ({
     x: Math.random(), y: Math.random(),
     r: Math.random() * 1.3 + 0.3,
@@ -542,58 +446,99 @@ function initConsoleEarth() {
     // Étoiles
     stars.forEach(s => {
       ctx.globalAlpha = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(t * 0.025 + s.tw));
-      ctx.fillStyle = "#dde8ff";
+      ctx.fillStyle = "#cde8ff";
       ctx.beginPath(); ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2); ctx.fill();
     });
     ctx.globalAlpha = 1;
 
-    // Halo argenté
-    const halo = ctx.createRadialGradient(cx, cy, R * 0.97, cx, cy, R * 1.45);
-    halo.addColorStop(0,   "rgba(210,220,255,0.28)");
-    halo.addColorStop(0.4, "rgba(180,195,255,0.10)");
-    halo.addColorStop(1,   "rgba(150,170,240,0)");
+    // Halo atmosphérique bleu
+    const halo = ctx.createRadialGradient(cx, cy, R * 0.92, cx, cy, R * 1.48);
+    halo.addColorStop(0,   "rgba(92,170,255,0.52)");
+    halo.addColorStop(0.28,"rgba(79,157,255,0.22)");
+    halo.addColorStop(1,   "rgba(60,120,255,0)");
     ctx.fillStyle = halo;
-    ctx.beginPath(); ctx.arc(cx, cy, R * 1.45, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, R * 1.48, 0, Math.PI * 2); ctx.fill();
 
-    if (MoonRenderer.isReady()) {
-      // 60 fps purs — juste drawImage, zéro calcul
-      MoonRenderer.drawSphere(ctx, cx, cy, R, t * 0.003);
-    } else {
-      // Placeholder pendant le pre-render (~1 sec)
-      const prog = MoonRenderer.progress();
-      const g = ctx.createRadialGradient(cx - R * 0.26, cy - R * 0.22, R * 0.06, cx, cy, R);
-      g.addColorStop(0,   "#bdc8d8");
-      g.addColorStop(0.45,"#6a7585");
-      g.addColorStop(1,   "#252c38");
+    // Terre (statique — zéro recalcul après la 1ʳᵉ frame)
+    const drew = EarthTexture.drawSphere(ctx, cx, cy, R, STATIC_EARTH_ROT, 0.35);
+    if (!drew) {
+      // Fallback pendant le chargement de la texture (~quelques secondes)
+      const g = ctx.createRadialGradient(cx - R*0.3, cy - R*0.25, R*0.05, cx, cy, R);
+      g.addColorStop(0,   "#5ea6ff");
+      g.addColorStop(0.5, "#2e7af8");
+      g.addColorStop(1,   "#0a1e4a");
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
-      // Arc de progression discret
-      if (prog > 0) {
-        ctx.strokeStyle = "rgba(200,215,255,0.38)";
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([3, 4]);
-        ctx.beginPath();
-        ctx.arc(cx, cy, R + 9, -Math.PI / 2, -Math.PI / 2 + prog * Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
     }
 
-    // Rim argenté (screen blend)
+    // Rim atmosphérique (screen blend)
     ctx.save();
     ctx.globalCompositeOperation = "screen";
-    const rim = ctx.createRadialGradient(cx, cy, R * 0.93, cx, cy, R * 1.05);
-    rim.addColorStop(0,    "rgba(220,230,255,0)");
-    rim.addColorStop(0.55, "rgba(220,230,255,0.32)");
-    rim.addColorStop(1,    "rgba(220,230,255,0)");
+    const rim = ctx.createRadialGradient(cx, cy, R * 0.94, cx, cy, R * 1.06);
+    rim.addColorStop(0,   "rgba(100,180,255,0)");
+    rim.addColorStop(0.5, "rgba(100,180,255,0.42)");
+    rim.addColorStop(1,   "rgba(100,180,255,0)");
     ctx.fillStyle = rim;
-    ctx.beginPath(); ctx.arc(cx, cy, R * 1.05, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, R * 1.06, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
 
     t++;
     requestAnimationFrame(frame);
   }
   frame();
+}
+
+/* ── Satellite intro : suit le curseur souris ─────── */
+function initIntroSat() {
+  const satEl  = $(".intro-orbit-sat");
+  const bgEl   = $(".intro-earth-bg");
+  if (!satEl || !bgEl) return;
+
+  // Coupe l'animation CSS — le JS prend le relais
+  satEl.style.animation = "none";
+
+  let targetAngle  = -Math.PI / 2;   // 12h par défaut
+  let currentAngle = -Math.PI / 2;
+  let hasMouse     = false;
+  let driftT       = 0;
+
+  function setTargetAngle(clientX, clientY) {
+    const rect = bgEl.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    targetAngle = Math.atan2(clientY - cy, clientX - cx);
+  }
+
+  document.addEventListener("pointermove", e => {
+    if (e.pointerType !== "mouse" && e.pointerType !== "pen") return;
+    setTargetAngle(e.clientX, e.clientY);
+    hasMouse = true;
+  }, { passive: true });
+
+  // Quitte le suivi si la souris sort de la fenêtre
+  window.addEventListener("mouseout", (e) => {
+    if (!e.relatedTarget) hasMouse = false;
+  });
+
+  function animate() {
+    driftT += 0.006;
+    if (!hasMouse) {
+      // Orbite automatique en attendant la souris
+      targetAngle = -Math.PI / 2 + driftT;
+    }
+
+    // Lerp angulaire chemin court
+    let diff = targetAngle - currentAngle;
+    while (diff >  Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    currentAngle += diff * 0.07;
+
+    // Le span est à top:-6px (position 12h quand rotation=0)
+    // Pour placer le dot à l'angle currentAngle → rotation = currentAngle + π/2
+    satEl.style.transform = `translate(-50%,-50%) rotate(${currentAngle + Math.PI / 2}rad)`;
+    requestAnimationFrame(animate);
+  }
+  animate();
 }
 
 /* ── Canvas: LEFT — Fusée 3 phases premium ─────────── */
@@ -663,7 +608,7 @@ function initJourneyLeftCanvas() {
     ctx.fillStyle = atmHalo;
     ctx.beginPath(); ctx.arc(W/2, earthCy, earthR*1.16, 0, Math.PI*2); ctx.fill();
 
-    const drewEarth = EarthTexture.drawSphere(ctx, W/2, earthCy, earthR, t*0.0003, 0.32);
+    const drewEarth = EarthTexture.drawSphere(ctx, W/2, earthCy, earthR, STATIC_EARTH_ROT, 0.32);
     if (!drewEarth) {
       const eg = ctx.createRadialGradient(W*0.35, H-40, earthR*0.05, W/2, earthCy, earthR);
       eg.addColorStop(0, "#5ea6ff"); eg.addColorStop(0.5, "#2e7af8"); eg.addColorStop(1, "#0a1e4a");
@@ -905,7 +850,7 @@ function initJourneyRightCanvas() {
     ctx.fillStyle = atmHalo;
     ctx.beginPath(); ctx.arc(earthCx, earthCy, earthR*1.16, 0, Math.PI*2); ctx.fill();
 
-    const drewEarth = EarthTexture.drawSphere(ctx, earthCx, earthCy, earthR, t*0.0003, 0.32);
+    const drewEarth = EarthTexture.drawSphere(ctx, earthCx, earthCy, earthR, STATIC_EARTH_ROT, 0.32);
     if (!drewEarth) {
       const eg = ctx.createRadialGradient(earthCx-earthR*0.3, earthCy-earthR*0.3, earthR*0.05, earthCx, earthCy, earthR);
       eg.addColorStop(0, "#5ea6ff"); eg.addColorStop(0.5, "#2e7af8"); eg.addColorStop(1, "#0a1e4a");
@@ -1273,6 +1218,47 @@ function initSpaceCanvas() {
   frame();
 }
 
+function progressEarthIcon() {
+  return `
+    <svg class="progress-icon progress-icon-earth" viewBox="0 0 36 36" aria-hidden="true">
+      <circle cx="18" cy="18" r="14" fill="#0b1e4b"></circle>
+      <circle cx="18" cy="18" r="13" fill="#2f7df5"></circle>
+      <circle cx="14" cy="13" r="6.4" fill="rgba(168,224,255,0.58)"></circle>
+      <path d="M9.2 14.4c2.5-2 5.3-2.4 7.6-1.4 1.5.7 2.7 2 2.6 3.2-.1 1.6-1.9 2.2-3.5 2.5-1.9.4-3.4 1-4 2.1-.8 1.4.3 2.8 2.3 3.2" fill="none" stroke="#6de38f" stroke-width="1.8" stroke-linecap="round"></path>
+      <path d="M20.5 9.8c2.1.4 4.2 1.7 5.4 3.4 1.1 1.5 1.4 3.3.7 4.7-.7 1.4-2.3 2.4-4.1 2.6-1.5.2-2.8-.1-3.7-.8" fill="none" stroke="#7af29d" stroke-width="1.8" stroke-linecap="round"></path>
+      <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(165,214,255,0.78)" stroke-width="1"></circle>
+    </svg>
+  `;
+}
+
+function progressSatelliteIcon() {
+  return `
+    <svg class="progress-icon progress-icon-sat" viewBox="0 0 42 42" aria-hidden="true">
+      <circle cx="21" cy="21" r="20" fill="rgba(8,22,52,0.72)"></circle>
+      <g transform="translate(21 21) rotate(-18)">
+        <rect x="-16.5" y="-3.2" width="9" height="6.4" rx="1.2" fill="#2678f4"></rect>
+        <rect x="7.5" y="-3.2" width="9" height="6.4" rx="1.2" fill="#2678f4"></rect>
+        <rect x="-7" y="-5.5" width="14" height="11" rx="2" fill="#dfeeff"></rect>
+        <rect x="-2.6" y="-2.2" width="5.2" height="4.4" rx="1" fill="#0b1e4b"></rect>
+      </g>
+      <circle cx="21" cy="21" r="20" fill="none" stroke="rgba(165,214,255,0.46)" stroke-width="1"></circle>
+    </svg>
+  `;
+}
+
+function progressRocketIcon() {
+  return `
+    <svg class="progress-icon progress-icon-rocket" viewBox="0 0 34 34" aria-hidden="true">
+      <g transform="translate(17 17) rotate(90) translate(-17 -17)">
+        <path d="M17 6.3c3.8 1.8 6.5 5.1 7.3 9.4l-3.4 3.4H13.1l-3.4-3.4c.8-4.3 3.5-7.6 7.3-9.4z" fill="#eaf4ff"></path>
+        <path d="M11.4 19.1h11.2l2.3 3.8H9.1l2.3-3.8z" fill="#8cb5e7"></path>
+        <path d="M13.8 22.9l-2.9 3.1v-3.1h2.9zM20.2 22.9h2.9v3.1l-2.9-3.1z" fill="#4f87cb"></path>
+        <circle cx="17" cy="14.2" r="2.4" fill="#2d79ef"></circle>
+      </g>
+    </svg>
+  `;
+}
+
 /* ── Progress rendering (builds the nodes based on style) ─── */
 function renderProgress() {
   const wrap = $("#progress-track");
@@ -1288,16 +1274,24 @@ function renderProgress() {
       <div class="progress-nodes">
         ${MISSION_PHASES.map((p, i) => `<div class="progress-node" data-idx="${i + 1}" title="${p.name}">${String(i + 1).padStart(2,'0')}</div>`).join("")}
       </div>
+      <div class="progress-mobile-decor" aria-hidden="true">
+        <div class="progress-mobile-earth">${progressEarthIcon()}</div>
+        <div class="progress-mobile-rocket">
+          <span class="progress-mobile-rocket-icon">${progressRocketIcon()}</span>
+          <span class="progress-mobile-flame"></span>
+        </div>
+        <div class="progress-mobile-target">${progressSatelliteIcon()}</div>
+      </div>
     `;
   } else if (style === "altitude") {
     wrap.innerHTML = `
-      <div class="progress-earth">🌍</div>
+      <div class="progress-earth">${progressEarthIcon()}</div>
       <div class="progress-trail">
         <div class="progress-rail"></div>
         <div class="progress-fill"></div>
-        <div class="progress-rocket">🚀</div>
+        <div class="progress-rocket">${progressRocketIcon()}</div>
       </div>
-      <div class="progress-orbit">🛰</div>
+      <div class="progress-orbit">${progressSatelliteIcon()}</div>
     `;
   } else if (style === "phases") {
     wrap.innerHTML = `
@@ -1530,6 +1524,7 @@ function boot() {
   wireUpload();
   initSpaceCanvas();
   initConsoleEarth();
+  initIntroSat();
 
   $("#btn-home")?.addEventListener("click", () => showScreen("intro"));
   $("#btn-start")?.addEventListener("click", () => { showScreen("form"); showStep(1); });
@@ -1560,3 +1555,8 @@ function boot() {
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
 else boot();
+
+
+
+
+
