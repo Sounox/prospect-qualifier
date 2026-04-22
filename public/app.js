@@ -77,8 +77,9 @@ const EarthTexture = (() => {
   }
 
   // Cache rendered spheres so we don't re-raycast every frame.
-  // Key: R (rounded) + tilt * 10 rounded. We regenerate the sphere when rot
-  // has drifted by > 0.015 rad (~0.86 deg), which is visually negligible.
+  // Key: R (rounded) + tilt * 10 rounded. Re-render when rotation drifts
+  // by more than this threshold (smaller = smoother continents, more CPU).
+  const EARTH_REGEN_THRESHOLD = 0.005;
   const sphereCache = new Map();
   function getSphereCanvas(R, tilt) {
     const key = R + ":" + Math.round(tilt * 100);
@@ -121,7 +122,14 @@ const EarthTexture = (() => {
         const v = 0.5 - lat / Math.PI;
         const day = sample(_day, u, v);
         const night = _night ? sample(_night, u, v) : day;
-        const clouds = _clouds ? sample(_clouds, u, v) : null;
+        let cloudU = u;
+        if (_clouds) {
+          // Atmosphere drifts slightly faster than the ground.
+          const cloudDrift = (rot * 0.035) / (2 * Math.PI);
+          cloudU = (u + cloudDrift) % 1;
+          if (cloudU < 0) cloudU += 1;
+        }
+        const clouds = _clouds ? sample(_clouds, cloudU, v) : null;
 
         let lambert = nx * lx + ty * ly + tz * lz;
         lambert = Math.max(0, Math.min(1, lambert * 0.95 + 0.05));
@@ -156,14 +164,14 @@ const EarthTexture = (() => {
     onReady: (fn) => { if (_state === "ready") fn(); else listeners.push(fn); },
     /**
      * Draw the Earth sphere at (cx,cy) with radius R, with rotation+tilt.
-     * Cached: re-raycasts only when rotation drifts more than ~0.015 rad.
+     * Cached: re-raycasts only when rotation drifts more than threshold.
      */
     drawSphere(ctx, cx, cy, R, rot, tilt = 0.4) {
       if (_state !== "ready") return false;
       // Cap render size for very large spheres (perf)
       const renderR = Math.min(R, 360);
       const entry = getSphereCanvas(renderR, tilt);
-      if (Math.abs(entry.lastRot - rot) > 0.015 || entry.lastRot === Infinity) {
+      if (Math.abs(entry.lastRot - rot) > EARTH_REGEN_THRESHOLD || entry.lastRot === Infinity) {
         const img = renderSphereTo(entry.ctx, renderR, rot, tilt);
         entry.ctx.clearRect(0, 0, renderR * 2, renderR * 2);
         entry.ctx.putImageData(img, 0, 0);
@@ -187,7 +195,9 @@ const MoonRenderer = {
 };
 
 const TOTAL_STEPS = 11;
-const STATIC_EARTH_ROT = 1.05;
+const EARTH_ROT_BASE = 1.05;
+const EARTH_ROT_SPEED_INTRO = 0.00022; // rad / ms
+const EARTH_ROT_SPEED_SIDE = 0.00025;  // rad / ms
 
 // Named mission phases — one per step
 const MISSION_PHASES = [
@@ -503,8 +513,9 @@ function initConsoleEarth() {
     ctx.fillStyle = halo;
     ctx.beginPath(); ctx.arc(cx, cy, R * 1.48, 0, Math.PI * 2); ctx.fill();
 
-    // Terre (statique — zéro recalcul après la 1ʳᵉ frame)
-    const drew = EarthTexture.drawSphere(ctx, cx, cy, R, STATIC_EARTH_ROT, 0.35);
+    // Terre en rotation fluide (continents qui défilent).
+    const earthRot = EARTH_ROT_BASE + performance.now() * EARTH_ROT_SPEED_INTRO;
+    const drew = EarthTexture.drawSphere(ctx, cx, cy, R, earthRot, 0.35);
     if (!drew) {
       // Fallback pendant le chargement de la texture (~quelques secondes)
       const g = ctx.createRadialGradient(cx - R*0.3, cy - R*0.25, R*0.05, cx, cy, R);
@@ -652,7 +663,8 @@ function initJourneyLeftCanvas() {
     ctx.fillStyle = atmHalo;
     ctx.beginPath(); ctx.arc(W/2, earthCy, earthR*1.16, 0, Math.PI*2); ctx.fill();
 
-    const drewEarth = EarthTexture.drawSphere(ctx, W/2, earthCy, earthR, STATIC_EARTH_ROT, 0.32);
+    const earthRot = EARTH_ROT_BASE + performance.now() * EARTH_ROT_SPEED_SIDE;
+    const drewEarth = EarthTexture.drawSphere(ctx, W/2, earthCy, earthR, earthRot, 0.32);
     if (!drewEarth) {
       const eg = ctx.createRadialGradient(W*0.35, H-40, earthR*0.05, W/2, earthCy, earthR);
       eg.addColorStop(0, "#5ea6ff"); eg.addColorStop(0.5, "#2e7af8"); eg.addColorStop(1, "#0a1e4a");
@@ -894,7 +906,8 @@ function initJourneyRightCanvas() {
     ctx.fillStyle = atmHalo;
     ctx.beginPath(); ctx.arc(earthCx, earthCy, earthR*1.16, 0, Math.PI*2); ctx.fill();
 
-    const drewEarth = EarthTexture.drawSphere(ctx, earthCx, earthCy, earthR, STATIC_EARTH_ROT, 0.32);
+    const earthRot = EARTH_ROT_BASE + performance.now() * EARTH_ROT_SPEED_SIDE;
+    const drewEarth = EarthTexture.drawSphere(ctx, earthCx, earthCy, earthR, earthRot, 0.32);
     if (!drewEarth) {
       const eg = ctx.createRadialGradient(earthCx-earthR*0.3, earthCy-earthR*0.3, earthR*0.05, earthCx, earthCy, earthR);
       eg.addColorStop(0, "#5ea6ff"); eg.addColorStop(0.5, "#2e7af8"); eg.addColorStop(1, "#0a1e4a");
