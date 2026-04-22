@@ -12,6 +12,8 @@ const EARTH_NIGHT_TEXTURE_URL =
   "https://upload.wikimedia.org/wikipedia/commons/2/2f/Solarsystemscope_texture_2k_earth_nightmap.jpg";
 const EARTH_FALLBACK_TEXTURE_URL =
   "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/WorldMap-A_non-Frame.png/2048px-WorldMap-A_non-Frame.png";
+const DECOR_ROCKET_IMAGE_URL = "/assets/rocket-real.jpg";
+const DECOR_SATELLITE_IMAGE_URL = "/assets/satellite-real.jpg";
 
 const EarthTexture = (() => {
   let _day = null, _night = null, _clouds = null, _state = "idle";
@@ -254,6 +256,72 @@ function loadState() {
 /* ── DOM helpers ──────────────────────────────────── */
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+
+function loadDecorImage(src) {
+  const img = new Image();
+  img.decoding = "async";
+  img.loading = "eager";
+  img.src = src;
+  return img;
+}
+
+const decorSprites = {
+  rocket: loadDecorImage(DECOR_ROCKET_IMAGE_URL),
+  satellite: loadDecorImage(DECOR_SATELLITE_IMAGE_URL),
+};
+
+function hasImageLoaded(img) {
+  return Boolean(img && img.complete && img.naturalWidth > 0);
+}
+
+function drawImageCover(ctx, img, x, y, w, h, alpha = 1) {
+  if (!hasImageLoaded(img)) return false;
+  const srcW = img.naturalWidth;
+  const srcH = img.naturalHeight;
+  const srcRatio = srcW / srcH;
+  const dstRatio = w / h;
+  let sx = 0;
+  let sy = 0;
+  let sw = srcW;
+  let sh = srcH;
+  if (srcRatio > dstRatio) {
+    sw = srcH * dstRatio;
+    sx = (srcW - sw) * 0.5;
+  } else {
+    sh = srcW / dstRatio;
+    sy = (srcH - sh) * 0.5;
+  }
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  ctx.restore();
+  return true;
+}
+
+let journeyVideosInitialized = false;
+function initJourneyVideos() {
+  if (journeyVideosInitialized) return;
+  const videos = [$("#journey-video-left"), $("#journey-video-right")].filter(Boolean);
+  if (!videos.length) return;
+  journeyVideosInitialized = true;
+
+  const tryPlayAll = () => {
+    videos.forEach((video) => {
+      video.muted = true;
+      video.loop = true;
+      video.playsInline = true;
+      const playPromise = video.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch(() => {});
+      }
+    });
+  };
+
+  tryPlayAll();
+  ["pointerdown", "touchstart", "keydown"].forEach((evt) => {
+    document.addEventListener(evt, tryPlayAll, { passive: true, once: true });
+  });
+}
 
 /* ── Screen navigation ────────────────────────────── */
 function showScreen(name) {
@@ -602,6 +670,7 @@ let leftCanvasState = null;
 function initJourneyLeftCanvas() {
   const canvas = $("#journey-left-canvas");
   if (!canvas) return;
+  const panelVideo = $("#journey-video-left");
   const ctx = canvas.getContext("2d");
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   let W, H;
@@ -635,13 +704,23 @@ function initJourneyLeftCanvas() {
     const phaseColor = p3 > 0 ? "#a6ff6b"  : p2 > 0 ? "#5ce3ff" : "#ffb547";
 
     // ── Ciel — s'assombrit vers l'espace avec ratio
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
-    const bTop = Math.round(3 + ratio * 2);
-    skyGrad.addColorStop(0, `rgb(${bTop},${bTop+4},${bTop+17})`);
-    skyGrad.addColorStop(0.6, `rgba(5,11,${Math.round(35 + (1-ratio)*45)},0.8)`);
-    skyGrad.addColorStop(1,   `rgba(10,${Math.round(20+(1-ratio)*30)},${Math.round(60+(1-ratio)*80)},0.5)`);
-    ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, W, H);
+    const videoReady = Boolean(panelVideo && panelVideo.readyState >= 2);
+    if (videoReady) {
+      const overlay = ctx.createLinearGradient(0, 0, 0, H);
+      overlay.addColorStop(0, "rgba(2,8,22,0.16)");
+      overlay.addColorStop(0.58, "rgba(3,10,28,0.22)");
+      overlay.addColorStop(1, "rgba(1,6,18,0.34)");
+      ctx.fillStyle = overlay;
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+      const bTop = Math.round(3 + ratio * 2);
+      skyGrad.addColorStop(0, `rgb(${bTop},${bTop+4},${bTop+17})`);
+      skyGrad.addColorStop(0.6, `rgba(5,11,${Math.round(35 + (1-ratio)*45)},0.8)`);
+      skyGrad.addColorStop(1,   `rgba(10,${Math.round(20+(1-ratio)*30)},${Math.round(60+(1-ratio)*80)},0.5)`);
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, W, H);
+    }
 
     // ── Étoiles (apparaissent à mesure qu'on monte)
     stars.forEach(s => {
@@ -653,33 +732,34 @@ function initJourneyLeftCanvas() {
     ctx.globalAlpha = 1;
 
     // ── Terre photoréaliste (bas du panneau)
-    const earthR  = Math.floor(W * 1.2);
-    const earthCy = H + earthR * 0.72;
+    if (!videoReady) {
+      const earthR  = Math.floor(W * 1.2);
+      const earthCy = H + earthR * 0.72;
+      const atmA = Math.max(0.1, 0.55 - ratio * 0.28);
+      const atmHalo = ctx.createRadialGradient(W/2, earthCy, earthR*0.92, W/2, earthCy, earthR*1.16);
+      atmHalo.addColorStop(0,   `rgba(92,170,255,${atmA})`);
+      atmHalo.addColorStop(0.5, `rgba(79,157,255,${atmA*0.35})`);
+      atmHalo.addColorStop(1,   "rgba(79,157,255,0)");
+      ctx.fillStyle = atmHalo;
+      ctx.beginPath(); ctx.arc(W/2, earthCy, earthR*1.16, 0, Math.PI*2); ctx.fill();
 
-    const atmA = Math.max(0.1, 0.55 - ratio * 0.28);
-    const atmHalo = ctx.createRadialGradient(W/2, earthCy, earthR*0.92, W/2, earthCy, earthR*1.16);
-    atmHalo.addColorStop(0,   `rgba(92,170,255,${atmA})`);
-    atmHalo.addColorStop(0.5, `rgba(79,157,255,${atmA*0.35})`);
-    atmHalo.addColorStop(1,   "rgba(79,157,255,0)");
-    ctx.fillStyle = atmHalo;
-    ctx.beginPath(); ctx.arc(W/2, earthCy, earthR*1.16, 0, Math.PI*2); ctx.fill();
-
-    const earthRot = EARTH_ROT_BASE + performance.now() * EARTH_ROT_SPEED_SIDE;
-    const drewEarth = EarthTexture.drawSphere(ctx, W/2, earthCy, earthR, earthRot, 0.32);
-    if (!drewEarth) {
-      const eg = ctx.createRadialGradient(W*0.35, H-40, earthR*0.05, W/2, earthCy, earthR);
-      eg.addColorStop(0, "#5ea6ff"); eg.addColorStop(0.5, "#2e7af8"); eg.addColorStop(1, "#0a1e4a");
-      ctx.fillStyle = eg;
-      ctx.beginPath(); ctx.arc(W/2, earthCy, earthR, 0, Math.PI*2); ctx.fill();
+      const earthRot = EARTH_ROT_BASE + performance.now() * EARTH_ROT_SPEED_SIDE;
+      const drewEarth = EarthTexture.drawSphere(ctx, W/2, earthCy, earthR, earthRot, 0.32);
+      if (!drewEarth) {
+        const eg = ctx.createRadialGradient(W*0.35, H-40, earthR*0.05, W/2, earthCy, earthR);
+        eg.addColorStop(0, "#5ea6ff"); eg.addColorStop(0.5, "#2e7af8"); eg.addColorStop(1, "#0a1e4a");
+        ctx.fillStyle = eg;
+        ctx.beginPath(); ctx.arc(W/2, earthCy, earthR, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.save(); ctx.globalCompositeOperation = "screen";
+      const rimE = ctx.createRadialGradient(W/2, earthCy, earthR*0.96, W/2, earthCy, earthR*1.04);
+      rimE.addColorStop(0, "rgba(140,200,255,0)");
+      rimE.addColorStop(0.5, `rgba(140,200,255,${0.28-ratio*0.12})`);
+      rimE.addColorStop(1, "rgba(140,200,255,0)");
+      ctx.fillStyle = rimE;
+      ctx.beginPath(); ctx.arc(W/2, earthCy, earthR*1.04, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
     }
-    ctx.save(); ctx.globalCompositeOperation = "screen";
-    const rimE = ctx.createRadialGradient(W/2, earthCy, earthR*0.96, W/2, earthCy, earthR*1.04);
-    rimE.addColorStop(0, "rgba(140,200,255,0)");
-    rimE.addColorStop(0.5, `rgba(140,200,255,${0.28-ratio*0.12})`);
-    rimE.addColorStop(1, "rgba(140,200,255,0)");
-    ctx.fillStyle = rimE;
-    ctx.beginPath(); ctx.arc(W/2, earthCy, earthR*1.04, 0, Math.PI*2); ctx.fill();
-    ctx.restore();
 
     // ── Plateforme de lancement (phase 1 seulement)
     if (p2 < 0.15) {
@@ -786,6 +866,18 @@ function initJourneyLeftCanvas() {
     ctx.quadraticCurveTo(12, -40, 12, -10);
     ctx.lineTo(12, 24); ctx.closePath(); ctx.fill();
 
+    if (hasImageLoaded(decorSprites.rocket)) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(-11.6, 22); ctx.lineTo(-11.6, -9.5);
+      ctx.quadraticCurveTo(-11.6, -37.8, 0, -37.8);
+      ctx.quadraticCurveTo(11.6, -37.8, 11.6, -9.5);
+      ctx.lineTo(11.6, 22); ctx.closePath();
+      ctx.clip();
+      drawImageCover(ctx, decorSprites.rocket, -12, -40, 24, 64, 0.92);
+      ctx.restore();
+    }
+
     // Ombre latérale pour casser l'effet cartoon
     const bodyShadow = ctx.createLinearGradient(-12, 0, 12, 0);
     bodyShadow.addColorStop(0, "rgba(10,24,48,0.32)");
@@ -877,6 +969,7 @@ function initJourneyLeftCanvas() {
 function initJourneyRightCanvas() {
   const canvas = $("#journey-right-canvas");
   if (!canvas) return;
+  const panelVideo = $("#journey-video-right");
   const ctx = canvas.getContext("2d");
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   let W, H;
@@ -909,13 +1002,23 @@ function initJourneyRightCanvas() {
     const phaseColor = p3 > 0 ? "#a6ff6b"       : p2 > 0 ? "#5ce3ff"     : "#ffb547";
 
     // ── Ciel (identique au panneau gauche)
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
-    const bTop = Math.round(3 + ratio * 2);
-    skyGrad.addColorStop(0,   `rgb(${bTop},${bTop+4},${bTop+17})`);
-    skyGrad.addColorStop(0.6, `rgba(5,11,${Math.round(35+(1-ratio)*45)},0.8)`);
-    skyGrad.addColorStop(1,   `rgba(10,${Math.round(20+(1-ratio)*30)},${Math.round(60+(1-ratio)*80)},0.5)`);
-    ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, W, H);
+    const videoReady = Boolean(panelVideo && panelVideo.readyState >= 2);
+    if (videoReady) {
+      const overlay = ctx.createLinearGradient(0, 0, 0, H);
+      overlay.addColorStop(0, "rgba(2,8,22,0.16)");
+      overlay.addColorStop(0.58, "rgba(3,10,28,0.22)");
+      overlay.addColorStop(1, "rgba(1,6,18,0.34)");
+      ctx.fillStyle = overlay;
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+      const bTop = Math.round(3 + ratio * 2);
+      skyGrad.addColorStop(0,   `rgb(${bTop},${bTop+4},${bTop+17})`);
+      skyGrad.addColorStop(0.6, `rgba(5,11,${Math.round(35+(1-ratio)*45)},0.8)`);
+      skyGrad.addColorStop(1,   `rgba(10,${Math.round(20+(1-ratio)*30)},${Math.round(60+(1-ratio)*80)},0.5)`);
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, W, H);
+    }
 
     // ── Étoiles (apparaissent avec ratio)
     stars.forEach(s => {
@@ -931,30 +1034,32 @@ function initJourneyRightCanvas() {
     const earthCx = W * 0.2;
     const earthCy = H + 40;
 
-    const atmA = Math.max(0.1, 0.55 - ratio * 0.28);
-    const atmHalo = ctx.createRadialGradient(earthCx, earthCy, earthR*0.92, earthCx, earthCy, earthR*1.16);
-    atmHalo.addColorStop(0,   `rgba(92,170,255,${atmA})`);
-    atmHalo.addColorStop(0.5, `rgba(79,157,255,${atmA*0.35})`);
-    atmHalo.addColorStop(1,   "rgba(79,157,255,0)");
-    ctx.fillStyle = atmHalo;
-    ctx.beginPath(); ctx.arc(earthCx, earthCy, earthR*1.16, 0, Math.PI*2); ctx.fill();
+    if (!videoReady) {
+      const atmA = Math.max(0.1, 0.55 - ratio * 0.28);
+      const atmHalo = ctx.createRadialGradient(earthCx, earthCy, earthR*0.92, earthCx, earthCy, earthR*1.16);
+      atmHalo.addColorStop(0,   `rgba(92,170,255,${atmA})`);
+      atmHalo.addColorStop(0.5, `rgba(79,157,255,${atmA*0.35})`);
+      atmHalo.addColorStop(1,   "rgba(79,157,255,0)");
+      ctx.fillStyle = atmHalo;
+      ctx.beginPath(); ctx.arc(earthCx, earthCy, earthR*1.16, 0, Math.PI*2); ctx.fill();
 
-    const earthRot = EARTH_ROT_BASE + performance.now() * EARTH_ROT_SPEED_SIDE;
-    const drewEarth = EarthTexture.drawSphere(ctx, earthCx, earthCy, earthR, earthRot, 0.32);
-    if (!drewEarth) {
-      const eg = ctx.createRadialGradient(earthCx-earthR*0.3, earthCy-earthR*0.3, earthR*0.05, earthCx, earthCy, earthR);
-      eg.addColorStop(0, "#5ea6ff"); eg.addColorStop(0.5, "#2e7af8"); eg.addColorStop(1, "#0a1e4a");
-      ctx.fillStyle = eg;
-      ctx.beginPath(); ctx.arc(earthCx, earthCy, earthR, 0, Math.PI*2); ctx.fill();
+      const earthRot = EARTH_ROT_BASE + performance.now() * EARTH_ROT_SPEED_SIDE;
+      const drewEarth = EarthTexture.drawSphere(ctx, earthCx, earthCy, earthR, earthRot, 0.32);
+      if (!drewEarth) {
+        const eg = ctx.createRadialGradient(earthCx-earthR*0.3, earthCy-earthR*0.3, earthR*0.05, earthCx, earthCy, earthR);
+        eg.addColorStop(0, "#5ea6ff"); eg.addColorStop(0.5, "#2e7af8"); eg.addColorStop(1, "#0a1e4a");
+        ctx.fillStyle = eg;
+        ctx.beginPath(); ctx.arc(earthCx, earthCy, earthR, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.save(); ctx.globalCompositeOperation = "screen";
+      const rimE = ctx.createRadialGradient(earthCx, earthCy, earthR*0.96, earthCx, earthCy, earthR*1.04);
+      rimE.addColorStop(0, "rgba(140,200,255,0)");
+      rimE.addColorStop(0.5, `rgba(140,200,255,${0.28-ratio*0.12})`);
+      rimE.addColorStop(1, "rgba(140,200,255,0)");
+      ctx.fillStyle = rimE;
+      ctx.beginPath(); ctx.arc(earthCx, earthCy, earthR*1.04, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
     }
-    ctx.save(); ctx.globalCompositeOperation = "screen";
-    const rimE = ctx.createRadialGradient(earthCx, earthCy, earthR*0.96, earthCx, earthCy, earthR*1.04);
-    rimE.addColorStop(0, "rgba(140,200,255,0)");
-    rimE.addColorStop(0.5, `rgba(140,200,255,${0.28-ratio*0.12})`);
-    rimE.addColorStop(1, "rgba(140,200,255,0)");
-    ctx.fillStyle = rimE;
-    ctx.beginPath(); ctx.arc(earthCx, earthCy, earthR*1.04, 0, Math.PI*2); ctx.fill();
-    ctx.restore();
 
     // ── Anneau orbital (apparaît avec p1)
     const orbitR = earthR + 55;
@@ -1060,6 +1165,15 @@ function initJourneyRightCanvas() {
     ctx.fillStyle = bodG;
     ctx.beginPath(); ctx.roundRect(-bodyW/2, -bodyH/2, bodyW, bodyH, 3); ctx.fill();
 
+    if (hasImageLoaded(decorSprites.satellite)) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(-bodyW/2 + 0.6, -bodyH/2 + 0.6, bodyW - 1.2, bodyH - 1.2, 2.5);
+      ctx.clip();
+      drawImageCover(ctx, decorSprites.satellite, -bodyW/2, -bodyH/2, bodyW, bodyH, 0.9);
+      ctx.restore();
+    }
+
     // Ombre et reflet pour un volume plus crédible
     const satShadow = ctx.createLinearGradient(-bodyW/2, 0, bodyW/2, 0);
     satShadow.addColorStop(0, "rgba(12,28,52,0.3)");
@@ -1116,30 +1230,15 @@ function initJourneyRightCanvas() {
 
     // ── HUD droit: abaissé pour éviter toute superposition avec "Déploiement"
     const mono = "'JetBrains Mono', monospace";
-    const hudX = 10;
-    const hudY = 58;
-    const hudW = Math.min(146, W - 20);
-    const hudH = 44;
-
-    ctx.save();
-    ctx.fillStyle = "rgba(3,9,25,0.58)";
-    ctx.strokeStyle = "rgba(120,190,255,0.22)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect(hudX, hudY, hudW, hudH, 8);
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-
     ctx.textAlign = "left";
     ctx.fillStyle = phaseColor;
     ctx.font = `700 9px ${mono}`;
-    ctx.fillText(phaseName, hudX + 8, hudY + 13);
+    ctx.fillText(phaseName, 11, 20);
 
-    ctx.fillStyle = "rgba(205,225,255,0.72)";
+    ctx.fillStyle = "rgba(205,225,255,0.62)";
     ctx.font = `500 9px ${mono}`;
-    ctx.fillText(`ORB  ${String(Math.round(ratio*408)).padStart(3,"0")} KM`, hudX + 8, hudY + 27);
-    ctx.fillText(`SIG  ${String(Math.round(ratio*100)).padStart(3," ")} %`,  hudX + 8, hudY + 40);
+    ctx.fillText(`ORB  ${String(Math.round(ratio*408)).padStart(3,"0")} KM`, 11, 33);
+    ctx.fillText(`SIG  ${String(Math.round(ratio*100)).padStart(3," ")} %`,  11, 46);
 
     // ── Barre de phase (bas) — identique panneau gauche
     const bX = 11, bW = W - 22, bY = H - 18;
@@ -1175,6 +1274,7 @@ function initJourneyRightCanvas() {
 
 let journeyCanvasesInitialized = false;
 function initJourneyCanvases() {
+  initJourneyVideos();
   if (journeyCanvasesInitialized) return;
   journeyCanvasesInitialized = true;
   initJourneyLeftCanvas();
@@ -1371,30 +1471,23 @@ function progressSatelliteIcon() {
   return `
     <svg class="progress-icon progress-icon-sat" viewBox="0 0 42 42" aria-hidden="true">
       <defs>
-        <linearGradient id="${id}-panel" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#4a96ff"></stop>
-          <stop offset="45%" stop-color="#2b6fd2"></stop>
-          <stop offset="100%" stop-color="#1a4588"></stop>
-        </linearGradient>
-        <linearGradient id="${id}-body" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#f6fbff"></stop>
-          <stop offset="55%" stop-color="#d5e5f5"></stop>
-          <stop offset="100%" stop-color="#9fb5cc"></stop>
-        </linearGradient>
+        <clipPath id="${id}-clip">
+          <circle cx="21" cy="21" r="16.2"></circle>
+        </clipPath>
+        <radialGradient id="${id}-gloss" cx="34%" cy="26%" r="76%">
+          <stop offset="0%" stop-color="rgba(255,255,255,0.42)"></stop>
+          <stop offset="42%" stop-color="rgba(255,255,255,0.04)"></stop>
+          <stop offset="100%" stop-color="rgba(1,8,22,0.62)"></stop>
+        </radialGradient>
       </defs>
-      <circle cx="21" cy="21" r="20" fill="rgba(8,22,52,0.72)"></circle>
-      <g transform="translate(21 21) rotate(-18)">
-        <rect x="-18.5" y="-3.6" width="10.5" height="7.2" rx="1.3" fill="url(#${id}-panel)"></rect>
-        <rect x="8" y="-3.6" width="10.5" height="7.2" rx="1.3" fill="url(#${id}-panel)"></rect>
-        <rect x="-7.6" y="-6.2" width="15.2" height="12.4" rx="2.2" fill="url(#${id}-body)"></rect>
-        <rect x="-2.7" y="-2.4" width="5.4" height="4.8" rx="1" fill="#0b1e4b"></rect>
-        <path d="M-6.4 -4.4H6.4" stroke="rgba(110,150,185,0.55)" stroke-width="0.6"></path>
-        <path d="M-6.4 -0.2H6.4" stroke="rgba(110,150,185,0.55)" stroke-width="0.6"></path>
-        <path d="M-6.4 4H6.4" stroke="rgba(110,150,185,0.55)" stroke-width="0.6"></path>
-        <circle cx="0" cy="-6.9" r="1.2" fill="#d7e9ff"></circle>
+      <circle cx="21" cy="21" r="20" fill="rgba(7,18,44,0.78)"></circle>
+      <g clip-path="url(#${id}-clip)">
+        <image href="${DECOR_SATELLITE_IMAGE_URL}" x="0.8" y="2.2" width="40.4" height="37.6" preserveAspectRatio="xMidYMid slice"></image>
+        <rect x="4.8" y="4.8" width="32.4" height="32.4" fill="url(#${id}-gloss)"></rect>
       </g>
-      <circle cx="21" cy="21" r="18.4" fill="none" stroke="rgba(112,188,255,0.34)" stroke-width="0.8"></circle>
-      <circle cx="21" cy="21" r="20" fill="none" stroke="rgba(165,214,255,0.46)" stroke-width="1"></circle>
+      <circle cx="21" cy="21" r="16.2" fill="none" stroke="rgba(162,216,255,0.6)" stroke-width="0.65"></circle>
+      <circle cx="21" cy="21" r="18.5" fill="none" stroke="rgba(112,188,255,0.42)" stroke-width="0.85"></circle>
+      <circle cx="21" cy="21" r="20" fill="none" stroke="rgba(165,214,255,0.5)" stroke-width="1"></circle>
     </svg>
   `;
 }
@@ -1406,24 +1499,22 @@ function progressRocketIcon() {
   return `
     <svg class="progress-icon progress-icon-rocket" viewBox="0 0 34 34" aria-hidden="true">
       <defs>
-        <linearGradient id="${id}-body" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#f8fcff"></stop>
-          <stop offset="50%" stop-color="#dae8f7"></stop>
-          <stop offset="100%" stop-color="#9cb3c9"></stop>
-        </linearGradient>
-        <linearGradient id="${id}-fin" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#6f98c8"></stop>
-          <stop offset="100%" stop-color="#406898"></stop>
+        <clipPath id="${id}-clip">
+          <circle cx="17" cy="17" r="12.8"></circle>
+        </clipPath>
+        <linearGradient id="${id}-shade" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="rgba(255,255,255,0.26)"></stop>
+          <stop offset="52%" stop-color="rgba(255,255,255,0.02)"></stop>
+          <stop offset="100%" stop-color="rgba(2,10,24,0.58)"></stop>
         </linearGradient>
       </defs>
-      <g transform="translate(17 17) rotate(90) translate(-17 -17)">
-        <path d="M17 6c4.3 2.1 7.2 5.7 7.8 10.3l-3.8 3.8H13l-3.8-3.8C9.8 11.7 12.7 8.1 17 6z" fill="url(#${id}-body)"></path>
-        <path d="M10.9 20.1h12.2l2.6 4.1H8.3l2.6-4.1z" fill="url(#${id}-fin)"></path>
-        <path d="M13.3 24.2l-3.2 3.3v-3.3h3.2zM20.7 24.2h3.2v3.3l-3.2-3.3z" fill="#4c79ad"></path>
-        <circle cx="17" cy="14.1" r="2.5" fill="#1e5dc0"></circle>
-        <circle cx="17" cy="14.1" r="1.1" fill="#9ed0ff"></circle>
-        <path d="M15.3 9.8c.9-.6 1.9-.7 2.9-.1" stroke="rgba(255,255,255,0.65)" stroke-width="0.7" stroke-linecap="round"></path>
+      <circle cx="17" cy="17" r="16" fill="rgba(7,20,48,0.84)"></circle>
+      <g clip-path="url(#${id}-clip)">
+        <image href="${DECOR_ROCKET_IMAGE_URL}" x="3.6" y="3.6" width="26.8" height="26.8" preserveAspectRatio="xMidYMid slice"></image>
+        <rect x="4.2" y="4.2" width="25.6" height="25.6" fill="url(#${id}-shade)"></rect>
       </g>
+      <circle cx="17" cy="17" r="12.8" fill="none" stroke="rgba(180,226,255,0.56)" stroke-width="0.62"></circle>
+      <circle cx="17" cy="17" r="16" fill="none" stroke="rgba(150,212,255,0.42)" stroke-width="0.9"></circle>
     </svg>
   `;
 }
