@@ -369,14 +369,14 @@ a { color: inherit; }
 
 .intro-title {
   font-family: var(--font-head);
-  font-size: clamp(30px, 4.1vw, 50px);
+  font-size: clamp(32px, 4.5vw, 56px);
   line-height: 1.04;
   letter-spacing: -0.028em;
   font-weight: 800;
   color: #fff;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   text-wrap: balance;
-  max-width: 22ch;
+  max-width: 20ch;
   text-shadow: 0 2px 40px rgba(3,7,20,0.8);
 }
 .intro-title .grad {
@@ -386,25 +386,25 @@ a { color: inherit; }
 }
 .intro-message-glass {
   width: 100%;
-  max-width: 720px;
-  margin: 0 auto 14px;
-  padding: 14px 18px 12px;
-  border-radius: 16px;
+  max-width: 840px;
+  margin: 0 auto 16px;
+  padding: 18px 24px 16px;
+  border-radius: 18px;
   border: 1px solid rgba(151, 202, 255, 0.28);
   background:
     linear-gradient(150deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04) 52%, rgba(3,10,24,0.28)),
     rgba(4,10,28,0.42);
-  backdrop-filter: blur(14px) saturate(118%);
-  -webkit-backdrop-filter: blur(14px) saturate(118%);
+  backdrop-filter: blur(16px) saturate(124%);
+  -webkit-backdrop-filter: blur(16px) saturate(124%);
   box-shadow:
-    0 14px 36px rgba(2,8,24,0.42),
+    0 20px 46px rgba(2,8,24,0.46),
     inset 0 1px 0 rgba(255,255,255,0.2);
 }
 .intro-sub {
-  font-size: 14.5px;
-  line-height: 1.46;
+  font-size: 15.5px;
+  line-height: 1.5;
   color: var(--text-mute);
-  max-width: 620px;
+  max-width: 700px;
   margin: 0 auto;
   text-wrap: pretty;
   text-shadow: 0 1px 12px rgba(3,7,20,0.6);
