@@ -681,6 +681,10 @@ a { color: inherit; }
   color: #c5dbff;
   z-index: 2;
 }
+.journey-panel--right .journey-label {
+  left: auto;
+  right: 16px;
+}
 .journey-label::before {
   content: "";
   width: 6px; height: 6px; border-radius: 50%;

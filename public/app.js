@@ -1012,17 +1012,32 @@ function initJourneyRightCanvas() {
       }
     }
 
-    // ── HUD — coin supérieur GAUCHE (miroir du panneau gauche)
+    // ── HUD droit: abaissé pour éviter toute superposition avec "Déploiement"
     const mono = "'JetBrains Mono', monospace";
+    const hudX = 10;
+    const hudY = 58;
+    const hudW = Math.min(146, W - 20);
+    const hudH = 44;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(3,9,25,0.58)";
+    ctx.strokeStyle = "rgba(120,190,255,0.22)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(hudX, hudY, hudW, hudH, 8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
     ctx.textAlign = "left";
     ctx.fillStyle = phaseColor;
     ctx.font = `700 9px ${mono}`;
-    ctx.fillText(phaseName, 11, 20);
+    ctx.fillText(phaseName, hudX + 8, hudY + 13);
 
-    ctx.fillStyle = "rgba(205,225,255,0.55)";
+    ctx.fillStyle = "rgba(205,225,255,0.72)";
     ctx.font = `500 9px ${mono}`;
-    ctx.fillText(`ORB  ${String(Math.round(ratio*408)).padStart(3,"0")} KM`, 11, 33);
-    ctx.fillText(`SIG  ${String(Math.round(ratio*100)).padStart(3," ")} %`,  11, 46);
+    ctx.fillText(`ORB  ${String(Math.round(ratio*408)).padStart(3,"0")} KM`, hudX + 8, hudY + 27);
+    ctx.fillText(`SIG  ${String(Math.round(ratio*100)).padStart(3," ")} %`,  hudX + 8, hudY + 40);
 
     // ── Barre de phase (bas) — identique panneau gauche
     const bX = 11, bW = W - 22, bY = H - 18;
@@ -1221,12 +1236,24 @@ function initSpaceCanvas() {
 function progressEarthIcon() {
   return `
     <svg class="progress-icon progress-icon-earth" viewBox="0 0 36 36" aria-hidden="true">
-      <circle cx="18" cy="18" r="14" fill="#0b1e4b"></circle>
-      <circle cx="18" cy="18" r="13" fill="#2f7df5"></circle>
-      <circle cx="14" cy="13" r="6.4" fill="rgba(168,224,255,0.58)"></circle>
-      <path d="M9.2 14.4c2.5-2 5.3-2.4 7.6-1.4 1.5.7 2.7 2 2.6 3.2-.1 1.6-1.9 2.2-3.5 2.5-1.9.4-3.4 1-4 2.1-.8 1.4.3 2.8 2.3 3.2" fill="none" stroke="#6de38f" stroke-width="1.8" stroke-linecap="round"></path>
-      <path d="M20.5 9.8c2.1.4 4.2 1.7 5.4 3.4 1.1 1.5 1.4 3.3.7 4.7-.7 1.4-2.3 2.4-4.1 2.6-1.5.2-2.8-.1-3.7-.8" fill="none" stroke="#7af29d" stroke-width="1.8" stroke-linecap="round"></path>
-      <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(165,214,255,0.78)" stroke-width="1"></circle>
+      <circle cx="18" cy="18" r="14" fill="#092050"></circle>
+      <circle cx="18" cy="18" r="13.2" fill="#2574f0"></circle>
+      <ellipse cx="13.6" cy="12.6" rx="6.4" ry="5.1" fill="rgba(168,225,255,0.46)"></ellipse>
+
+      <path d="M9.2 14.7c1.8-2.5 4.1-3.7 6.5-3.5 1.7.2 3.1 1.1 3.8 2.4-.8 1.8-2.4 2.5-4.4 2.8-1.9.3-3.7.8-4.7 2.3-.8 1.2-.9 2.8 0 3.9 1 1.3 2.8 2 5.2 1.9-.8.8-2 .9-3.3.7-2.1-.4-3.8-1.7-4.7-3.6-.9-1.9-.6-4.3.4-6.9z"
+        fill="#65d589"></path>
+      <path d="M20.6 9.6c2.4.5 4.5 1.8 5.9 3.7.9 1.2 1.3 2.6 1.1 3.9-.3 1.7-1.6 3.1-3.6 3.8-1.4.5-2.8.6-3.9.3 1.1-.9 1.8-2 2.1-3.2.2-.8 0-1.7-.5-2.5-.5-.8-1.3-1.4-2.2-1.8z"
+        fill="#5bcc82"></path>
+      <path d="M14.2 23.8c.9-.8 1.9-1.1 3-1 1 .1 1.8.5 2.3 1.2.7 1 .8 2.3.3 3.6-2.1-.4-4.2-1.7-5.6-3.8z"
+        fill="#4ebf76"></path>
+
+      <path d="M10.1 11.2c1.5-.9 3-.8 4.1.2" stroke="rgba(255,255,255,0.78)" stroke-width="1.2" stroke-linecap="round"></path>
+      <path d="M16.7 9.9c2.4-.8 4.8-.5 6.6.8" stroke="rgba(255,255,255,0.72)" stroke-width="1.1" stroke-linecap="round"></path>
+      <path d="M21.9 14.8c1.6-.2 3.1.2 4.4 1.1" stroke="rgba(255,255,255,0.66)" stroke-width="1" stroke-linecap="round"></path>
+      <path d="M8.8 18.1c2.2-.8 4.3-.6 6.2.6" stroke="rgba(255,255,255,0.62)" stroke-width="1" stroke-linecap="round"></path>
+      <path d="M15.4 20.5c1.9-.6 3.7-.5 5.2.4" stroke="rgba(255,255,255,0.56)" stroke-width="0.95" stroke-linecap="round"></path>
+
+      <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(167,216,255,0.78)" stroke-width="1"></circle>
     </svg>
   `;
 }
