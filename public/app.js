@@ -134,6 +134,121 @@ const EarthTexture = (() => {
 // Kick off texture load immediately
 EarthTexture.load();
 
+/* ─────────────────────────────────────────────────────
+   LUNE PROCÉDURALE — rendu par raycasting sans texture
+   Cratères + mares + ombrage Lambert + rim argenté
+───────────────────────────────────────────────────── */
+const MoonRenderer = (() => {
+  // Générateur pseudo-aléatoire seeded (reproductible)
+  function rng(seed) {
+    let s = seed >>> 0;
+    return () => { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s / 0xffffffff; };
+  }
+  const r = rng(137);
+
+  // Mares lunaires (zones sombres)
+  const MARE = Array.from({length: 7}, () => [
+    (r() - 0.5) * Math.PI * 1.8,   // lon
+    (r() - 0.5) * Math.PI * 0.6,   // lat (sin)
+    0.14 + r() * 0.18,              // rayon angulaire
+  ]);
+
+  // Cratères : [lon, lat_sin, rayon, profondeur]
+  const CRATERS = Array.from({length: 38}, () => [
+    (r() - 0.5) * Math.PI * 2,
+    (r() - 0.5) * 0.9,
+    0.015 + r() * 0.085,
+    0.45 + r() * 0.45,
+  ]);
+
+  const cache = new Map();
+
+  function renderR(R, rot) {
+    const diam = R * 2;
+    const buf  = new Uint8ClampedArray(diam * diam * 4);
+    const lx = -0.28, ly = -0.18, lz = 0.94;  // lumière frontale + haut-gauche
+
+    for (let py = 0; py < diam; py++) {
+      const dy = (py - R) / R;
+      for (let px = 0; px < diam; px++) {
+        const dx = (px - R) / R;
+        const d2 = dx * dx + dy * dy;
+        const base = (py * diam + px) * 4;
+        if (d2 > 1) { buf[base + 3] = 0; continue; }
+
+        const nz = Math.sqrt(1 - d2);
+        const lon = Math.atan2(dx, nz) + rot;
+
+        // Lambert
+        let lam = dx * lx + dy * ly + nz * lz;
+        lam = Math.max(0.04, Math.min(1, lam * 0.86 + 0.26));
+
+        // Terrain de base
+        let lum = 0.68
+          + Math.sin(lon * 19 + dy * 13) * 0.04
+          + Math.cos(lon * 7  - dy * 9 ) * 0.03
+          + Math.sin(lon * 41 + dy * 37) * 0.012;
+
+        // Mares
+        for (const [mLon, mLat, mR] of MARE) {
+          const dLon = Math.sin(lon - mLon);
+          const dLat = dy - mLat;
+          const dist = Math.sqrt(dLon * dLon + dLat * dLat);
+          if (dist < mR) {
+            const blend = Math.pow(1 - dist / mR, 1.4);
+            lum *= (1 - blend * 0.44);
+          }
+        }
+
+        // Cratères
+        for (const [cLon, cLat, cR, depth] of CRATERS) {
+          const dLon = Math.sin(lon - cLon);
+          const dLat = dy - cLat;
+          const dist = Math.sqrt(dLon * dLon + dLat * dLat);
+          if (dist < cR * 1.35) {
+            const t0 = dist / cR;
+            if (t0 < 0.65) {
+              lum *= 0.48 + t0 * depth;          // fond sombre
+            } else if (t0 < 1.0) {
+              const rimT = (t0 - 0.65) / 0.35;
+              lum += (1 - lum) * (1 - rimT) * 0.32; // rebord clair
+            }
+          }
+        }
+
+        // Rim subtle (exosphère quasi nulle)
+        const rim = Math.pow(1 - nz, 5) * 0.07;
+        const v = Math.min(1, lum * lam + rim);
+
+        buf[base]     = v * 245;          // légèrement chaud
+        buf[base + 1] = v * 245;
+        buf[base + 2] = v * 255;          // légèrement froid/bleu
+        buf[base + 3] = 255;
+      }
+    }
+    return buf;
+  }
+
+  return {
+    drawSphere(ctx, cx, cy, R, rot) {
+      const rR = Math.min(R, 320);
+      const key = `${rR}:${Math.round(rot * 60)}`;  // recalcule tous les ~1°
+      let entry = cache.get(key);
+      if (!entry) {
+        const buf = renderR(rR, rot);
+        const id  = new ImageData(new Uint8ClampedArray(buf), rR * 2, rR * 2);
+        const off = document.createElement("canvas");
+        off.width = rR * 2; off.height = rR * 2;
+        off.getContext("2d").putImageData(id, 0, 0);
+        entry = off;
+        if (cache.size > 24) cache.delete(cache.keys().next().value);
+        cache.set(key, entry);
+      }
+      ctx.drawImage(entry, cx - R, cy - R, R * 2, R * 2);
+    }
+  };
+})();
+
 const TOTAL_STEPS = 11;
 
 // Named mission phases — one per step
@@ -403,7 +518,7 @@ function renderBoardingPass(a) {
   });
 }
 
-/* ── Canvas: intro console Earth ──────────────────── */
+/* ── Canvas: intro — LUNE procédurale ─────────────── */
 function initConsoleEarth() {
   const canvas = $("#console-earth-canvas");
   if (!canvas) return;
@@ -411,82 +526,56 @@ function initConsoleEarth() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   let W, H, cx, cy, R;
   function resize() {
-    const r = canvas.getBoundingClientRect();
-    W = r.width; H = r.height;
-    canvas.width = W * dpr; canvas.height = H * dpr;
+    const rect = canvas.getBoundingClientRect();
+    W = rect.width; H = rect.height;
+    canvas.width  = W * dpr; canvas.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     cx = W / 2; cy = H / 2;
-    R = Math.floor(Math.min(W, H) * 0.48);
+    R  = Math.floor(Math.min(W, H) * 0.48);
   }
   resize();
   window.addEventListener("resize", resize);
 
-  let t = 0;
-  const stars = Array.from({length: 60}, () => ({
+  const stars = Array.from({length: 80}, () => ({
     x: Math.random(), y: Math.random(),
-    r: Math.random() * 1.2 + 0.3,
+    r: Math.random() * 1.3 + 0.3,
     tw: Math.random() * Math.PI * 2,
   }));
+  let t = 0;
 
   function frame() {
     ctx.clearRect(0, 0, W, H);
 
-    // stars
+    // Étoiles scintillantes
     stars.forEach(s => {
-      ctx.globalAlpha = 0.3 + 0.5 * (0.5 + 0.5 * Math.sin(t * 0.03 + s.tw));
-      ctx.fillStyle = "#cde4ff";
+      ctx.globalAlpha = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(t * 0.025 + s.tw));
+      ctx.fillStyle = "#dde8ff";
       ctx.beginPath();
       ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
       ctx.fill();
     });
     ctx.globalAlpha = 1;
 
-    // Atmosphere halo (blue glow)
-    const halo = ctx.createRadialGradient(cx, cy, R * 0.95, cx, cy, R * 1.55);
-    halo.addColorStop(0, "rgba(92,170,255,0.42)");
-    halo.addColorStop(0.5, "rgba(79,157,255,0.18)");
-    halo.addColorStop(1, "rgba(79,157,255,0)");
+    // Halo argenté (pas d'atmosphère sur la Lune — très subtil)
+    const halo = ctx.createRadialGradient(cx, cy, R * 0.97, cx, cy, R * 1.45);
+    halo.addColorStop(0,   "rgba(210,220,255,0.28)");
+    halo.addColorStop(0.4, "rgba(180,195,255,0.10)");
+    halo.addColorStop(1,   "rgba(150,170,240,0)");
     ctx.fillStyle = halo;
-    ctx.beginPath(); ctx.arc(cx, cy, R * 1.55, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, R * 1.45, 0, Math.PI * 2); ctx.fill();
 
-    // Earth sphere (photoreal texture)
-    const drawn = EarthTexture.drawSphere(ctx, cx, cy, R, t * 0.0015, 0.41);
-    if (!drawn) {
-      // Fallback: simple blue gradient until texture loads
-      const g = ctx.createRadialGradient(cx - R * 0.3, cy - R * 0.3, R * 0.1, cx, cy, R);
-      g.addColorStop(0, "#5ea6ff");
-      g.addColorStop(0.55, "#2e7af8");
-      g.addColorStop(1, "#0a1e4a");
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
-    }
+    // Lune procédurale (MoonRenderer)
+    MoonRenderer.drawSphere(ctx, cx, cy, R, t * 0.0005);
 
-    // Cloud layer — subtle moving clouds
+    // Rim argenté
     ctx.save();
     ctx.globalCompositeOperation = "screen";
-    ctx.globalAlpha = 0.16;
-    for (let i = 0; i < 6; i++) {
-      const a = t * 0.002 + i * 1.1;
-      const cx2 = cx + Math.cos(a) * R * 0.6;
-      const cy2 = cy + Math.sin(a * 1.3) * R * 0.4;
-      const rad = R * (0.18 + 0.12 * Math.sin(a * 2));
-      const cg = ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, rad);
-      cg.addColorStop(0, "rgba(255,255,255,0.9)");
-      cg.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = cg;
-      ctx.beginPath(); ctx.arc(cx2, cy2, rad, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.restore();
-
-    // Rim atmosphere glow (bright edge)
-    ctx.save();
-    ctx.globalCompositeOperation = "screen";
-    const rim = ctx.createRadialGradient(cx, cy, R * 0.92, cx, cy, R * 1.04);
-    rim.addColorStop(0, "rgba(140,200,255,0)");
-    rim.addColorStop(0.6, "rgba(140,200,255,0.35)");
-    rim.addColorStop(1, "rgba(140,200,255,0)");
+    const rim = ctx.createRadialGradient(cx, cy, R * 0.93, cx, cy, R * 1.05);
+    rim.addColorStop(0,   "rgba(220,230,255,0)");
+    rim.addColorStop(0.55,"rgba(220,230,255,0.32)");
+    rim.addColorStop(1,   "rgba(220,230,255,0)");
     ctx.fillStyle = rim;
-    ctx.beginPath(); ctx.arc(cx, cy, R * 1.04, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, R * 1.05, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
 
     t++;
@@ -495,7 +584,7 @@ function initConsoleEarth() {
   frame();
 }
 
-/* ── Canvas: LEFT journey panel (rocket ascent) ──── */
+/* ── Canvas: LEFT — Fusée 3 phases premium ─────────── */
 let leftCanvasState = null;
 function initJourneyLeftCanvas() {
   const canvas = $("#journey-left-canvas");
@@ -513,10 +602,10 @@ function initJourneyLeftCanvas() {
   leftCanvasState = { resize };
   window.addEventListener("resize", resize);
 
-  const stars = Array.from({length: 120}, () => ({
+  const stars = Array.from({length: 130}, () => ({
     x: Math.random(), y: Math.random(),
     r: Math.random() * 1.4 + 0.3,
-    sp: Math.random() * 0.3 + 0.1,
+    sp: Math.random() * 0.25 + 0.08,
     tw: Math.random() * Math.PI * 2,
   }));
   let t = 0;
@@ -525,123 +614,212 @@ function initJourneyLeftCanvas() {
     ctx.clearRect(0, 0, W, H);
     const ratio = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--progress-ratio")) || 0;
 
-    // Gradient sky
+    // ── Phases (0→0.30 LANCEMENT · 0.30→0.72 ASCENSION · 0.72→1 ORBITE)
+    const p1 = Math.min(1, ratio / 0.30);
+    const p2 = Math.min(1, Math.max(0, (ratio - 0.30) / 0.42));
+    const p3 = Math.min(1, Math.max(0, (ratio - 0.72) / 0.28));
+    const phaseName  = p3 > 0 ? "MISE EN ORBITE" : p2 > 0 ? "ASCENSION" : "LANCEMENT";
+    const phaseColor = p3 > 0 ? "#a6ff6b"  : p2 > 0 ? "#5ce3ff" : "#ffb547";
+
+    // ── Ciel — s'assombrit vers l'espace avec ratio
     const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
-    skyGrad.addColorStop(0, "rgba(3,7,20,1)");
-    skyGrad.addColorStop(0.6, "rgba(5,11,35,0.7)");
-    skyGrad.addColorStop(1, "rgba(15,30,80,0.4)");
+    const bTop = Math.round(3 + ratio * 2);
+    skyGrad.addColorStop(0, `rgb(${bTop},${bTop+4},${bTop+17})`);
+    skyGrad.addColorStop(0.6, `rgba(5,11,${Math.round(35 + (1-ratio)*45)},0.8)`);
+    skyGrad.addColorStop(1,   `rgba(10,${Math.round(20+(1-ratio)*30)},${Math.round(60+(1-ratio)*80)},0.5)`);
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, W, H);
 
-    // Stars (scrolling)
+    // ── Étoiles (apparaissent à mesure qu'on monte)
     stars.forEach(s => {
       const y = ((s.y * H) + t * s.sp) % H;
-      ctx.globalAlpha = 0.4 + 0.5 * (0.5 + 0.5 * Math.sin(t * 0.04 + s.tw));
+      ctx.globalAlpha = ratio * (0.35 + 0.55 * (0.5 + 0.5 * Math.sin(t * 0.035 + s.tw)));
       ctx.fillStyle = "#cde4ff";
-      ctx.beginPath();
-      ctx.arc(s.x * W, y, s.r, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(s.x * W, y, s.r, 0, Math.PI * 2); ctx.fill();
     });
     ctx.globalAlpha = 1;
 
-    // Earth at bottom — photoréaliste avec EarthTexture
-    const earthR = Math.floor(W * 1.2);
+    // ── Terre photoréaliste (bas du panneau)
+    const earthR  = Math.floor(W * 1.2);
     const earthCy = H + earthR * 0.72;
 
-    // Atmospheric halo AVANT la Terre (derrière)
-    const atmHalo = ctx.createRadialGradient(W * 0.5, earthCy, earthR * 0.92, W * 0.5, earthCy, earthR * 1.15);
-    atmHalo.addColorStop(0, "rgba(92,170,255,0.55)");
-    atmHalo.addColorStop(0.5, "rgba(79,157,255,0.2)");
-    atmHalo.addColorStop(1, "rgba(79,157,255,0)");
+    const atmA = Math.max(0.1, 0.55 - ratio * 0.28);
+    const atmHalo = ctx.createRadialGradient(W/2, earthCy, earthR*0.92, W/2, earthCy, earthR*1.16);
+    atmHalo.addColorStop(0,   `rgba(92,170,255,${atmA})`);
+    atmHalo.addColorStop(0.5, `rgba(79,157,255,${atmA*0.35})`);
+    atmHalo.addColorStop(1,   "rgba(79,157,255,0)");
     ctx.fillStyle = atmHalo;
-    ctx.beginPath(); ctx.arc(W / 2, earthCy, earthR * 1.15, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(W/2, earthCy, earthR*1.16, 0, Math.PI*2); ctx.fill();
 
-    // Terre photoréaliste (texture NASA raycasting)
-    const drewEarth = EarthTexture.drawSphere(ctx, W / 2, earthCy, earthR, t * 0.0003, 0.32);
+    const drewEarth = EarthTexture.drawSphere(ctx, W/2, earthCy, earthR, t*0.0003, 0.32);
     if (!drewEarth) {
-      // Fallback gradient si texture pas encore chargée
-      const eGrad = ctx.createRadialGradient(W * 0.35, H - 40, earthR * 0.05, W * 0.5, earthCy, earthR);
-      eGrad.addColorStop(0, "#5ea6ff");
-      eGrad.addColorStop(0.5, "#2e7af8");
-      eGrad.addColorStop(1, "#0a1e4a");
-      ctx.fillStyle = eGrad;
-      ctx.beginPath(); ctx.arc(W / 2, earthCy, earthR, 0, Math.PI * 2); ctx.fill();
+      const eg = ctx.createRadialGradient(W*0.35, H-40, earthR*0.05, W/2, earthCy, earthR);
+      eg.addColorStop(0, "#5ea6ff"); eg.addColorStop(0.5, "#2e7af8"); eg.addColorStop(1, "#0a1e4a");
+      ctx.fillStyle = eg;
+      ctx.beginPath(); ctx.arc(W/2, earthCy, earthR, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.save(); ctx.globalCompositeOperation = "screen";
+    const rimE = ctx.createRadialGradient(W/2, earthCy, earthR*0.96, W/2, earthCy, earthR*1.04);
+    rimE.addColorStop(0, "rgba(140,200,255,0)");
+    rimE.addColorStop(0.5, `rgba(140,200,255,${0.28-ratio*0.12})`);
+    rimE.addColorStop(1, "rgba(140,200,255,0)");
+    ctx.fillStyle = rimE;
+    ctx.beginPath(); ctx.arc(W/2, earthCy, earthR*1.04, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+
+    // ── Plateforme de lancement (phase 1 seulement)
+    if (p2 < 0.15) {
+      const padA = Math.max(0, 1 - p2 * 7);
+      const padY = H - 50;
+      ctx.globalAlpha = padA;
+      ctx.fillStyle = "#506080";
+      ctx.fillRect(W/2 - 22, padY, 44, 5);
+      ctx.fillRect(W/2 - 3, padY - 28, 6, 28);
+      ctx.fillStyle = "#384060";
+      ctx.fillRect(W/2 - 18, padY + 5, 36, 8);
+      ctx.globalAlpha = 1;
     }
 
-    // Rim lumineux (atmosphère)
-    ctx.save();
-    ctx.globalCompositeOperation = "screen";
-    const rimGrad = ctx.createRadialGradient(W/2, earthCy, earthR * 0.96, W/2, earthCy, earthR * 1.04);
-    rimGrad.addColorStop(0, "rgba(140,200,255,0)");
-    rimGrad.addColorStop(0.5, "rgba(140,200,255,0.3)");
-    rimGrad.addColorStop(1, "rgba(140,200,255,0)");
-    ctx.fillStyle = rimGrad;
-    ctx.beginPath(); ctx.arc(W / 2, earthCy, earthR * 1.04, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
+    // ── Nuage de fumée (lancement)
+    if (p1 > 0 && p2 < 0.4) {
+      const smokeA = Math.min(p1, 1 - p2/0.4) * 0.28;
+      for (let i = 0; i < 6; i++) {
+        const sr = 14 + i * 9 + p1 * 8;
+        const sx = W/2 + Math.sin(i * 2.3 + t * 0.02) * 9;
+        const sy = H - 56 + i * 5 + Math.cos(i * 1.8) * 5;
+        const sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
+        sg.addColorStop(0, `rgba(190,210,240,${smokeA})`);
+        sg.addColorStop(1, "rgba(100,130,200,0)");
+        ctx.fillStyle = sg;
+        ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI*2); ctx.fill();
+      }
+    }
 
-    // Rocket — ascends as ratio increases
-    // start near bottom (y ~ H - 80), end near top (y ~ 60)
-    const rocketY = H - 60 - ratio * (H - 120);
-    const rocketX = W / 2 + Math.sin(t * 0.03) * 4;
+    // ── Trajet de vapeur (trail pointillé)
+    if (ratio > 0.06) {
+      const trailTop = H - 58 - ratio * (H - 140);
+      ctx.save();
+      ctx.setLineDash([2, 5]);
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 22; i++) {
+        const tr = i / 22;
+        const ty = H - 58 - tr * ratio * (H - 140);
+        if (ty < trailTop - 2) break;
+        ctx.strokeStyle = `rgba(160,210,255,${(1-i/22)*ratio*0.35})`;
+        ctx.beginPath(); ctx.moveTo(W/2, ty); ctx.lineTo(W/2, ty - 3); ctx.stroke();
+      }
+      ctx.restore();
+    }
 
-    // exhaust
-    const flameLen = 30 + Math.sin(t * 0.4) * 6 + (1 - ratio) * 20;
-    const fg = ctx.createLinearGradient(0, rocketY + 30, 0, rocketY + 30 + flameLen);
-    fg.addColorStop(0, "rgba(255,200,100,0.95)");
-    fg.addColorStop(0.4, "rgba(255,120,60,0.7)");
-    fg.addColorStop(1, "rgba(255,60,30,0)");
-    ctx.fillStyle = fg;
-    ctx.beginPath();
-    ctx.moveTo(rocketX - 8, rocketY + 30);
-    ctx.quadraticCurveTo(rocketX, rocketY + 30 + flameLen, rocketX + 8, rocketY + 30);
-    ctx.closePath();
-    ctx.fill();
+    // ── Fusée — position + inclinaison gravity turn
+    const rocketY = H - 58 - ratio * (H - 140);
+    const rocketX = W/2 + Math.sin(t * 0.022) * 2.5;
+    const tilt    = p3 * 0.28;   // bascule vers horizontal en phase 3
+    const flameI  = Math.max(0.1, 1 - p3 * 0.75);
+    const flameL  = (22 + Math.sin(t * 0.38) * 5) * flameI + (1-ratio) * 14;
 
-    // inner flame
-    const fgi = ctx.createLinearGradient(0, rocketY + 30, 0, rocketY + 30 + flameLen * 0.6);
-    fgi.addColorStop(0, "rgba(255,255,255,1)");
-    fgi.addColorStop(1, "rgba(255,200,100,0)");
-    ctx.fillStyle = fgi;
-    ctx.beginPath();
-    ctx.moveTo(rocketX - 4, rocketY + 30);
-    ctx.quadraticCurveTo(rocketX, rocketY + 30 + flameLen * 0.6, rocketX + 4, rocketY + 30);
-    ctx.closePath();
-    ctx.fill();
-
-    // rocket body
     ctx.save();
     ctx.translate(rocketX, rocketY);
-    // body
-    const bgrad = ctx.createLinearGradient(-8, 0, 8, 0);
-    bgrad.addColorStop(0, "#e4eeff");
-    bgrad.addColorStop(0.5, "#ffffff");
-    bgrad.addColorStop(1, "#9ac3f5");
-    ctx.fillStyle = bgrad;
+    ctx.rotate(tilt);
+
+    // Flamme extérieure
+    const fg = ctx.createLinearGradient(0, 32, 0, 32 + flameL);
+    fg.addColorStop(0,   `rgba(255,195,90,${0.96*flameI})`);
+    fg.addColorStop(0.35,`rgba(255,110,50,${0.72*flameI})`);
+    fg.addColorStop(1,   "rgba(255,50,20,0)");
+    ctx.fillStyle = fg;
     ctx.beginPath();
-    ctx.moveTo(-8, 20);
-    ctx.lineTo(-8, -10);
-    ctx.quadraticCurveTo(-8, -26, 0, -26);
-    ctx.quadraticCurveTo(8, -26, 8, -10);
-    ctx.lineTo(8, 20);
-    ctx.closePath();
-    ctx.fill();
-    // window
-    ctx.fillStyle = "#2574F0";
-    ctx.beginPath(); ctx.arc(0, -5, 3.5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#cde4ff";
-    ctx.beginPath(); ctx.arc(0, -5, 2, 0, Math.PI * 2); ctx.fill();
-    // fins
-    ctx.fillStyle = "#8cc0ff";
-    ctx.beginPath(); ctx.moveTo(-8, 20); ctx.lineTo(-14, 28); ctx.lineTo(-8, 12); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(8, 20); ctx.lineTo(14, 28); ctx.lineTo(8, 12); ctx.closePath(); ctx.fill();
+    ctx.moveTo(-11, 32);
+    ctx.quadraticCurveTo(0, 32 + flameL, 11, 32);
+    ctx.closePath(); ctx.fill();
+
+    // Flamme centrale (noyau blanc)
+    const fc = ctx.createLinearGradient(0, 32, 0, 32 + flameL * 0.52);
+    fc.addColorStop(0, `rgba(255,255,255,${flameI})`);
+    fc.addColorStop(1, "rgba(255,210,120,0)");
+    ctx.fillStyle = fc;
+    ctx.beginPath();
+    ctx.moveTo(-5, 32); ctx.quadraticCurveTo(0, 32 + flameL*0.52, 5, 32);
+    ctx.closePath(); ctx.fill();
+
+    // Corps fusée (12px large, 46px haut)
+    const bg = ctx.createLinearGradient(-12, 0, 12, 0);
+    bg.addColorStop(0,   "#c8d8f4");
+    bg.addColorStop(0.35,"#f4f8ff");
+    bg.addColorStop(0.65,"#e4eeff");
+    bg.addColorStop(1,   "#86aedc");
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.moveTo(-12, 32); ctx.lineTo(-12, -10);
+    ctx.quadraticCurveTo(-12, -40, 0, -40);
+    ctx.quadraticCurveTo( 12, -40, 12, -10);
+    ctx.lineTo(12, 32); ctx.closePath(); ctx.fill();
+
+    // Reflet cone
+    ctx.fillStyle = "rgba(255,255,255,0.38)";
+    ctx.beginPath();
+    ctx.moveTo(-3, -10); ctx.quadraticCurveTo(-5, -34, 0, -40);
+    ctx.quadraticCurveTo(-1, -28, -3, -10); ctx.closePath(); ctx.fill();
+
+    // Hublot
+    const wg = ctx.createRadialGradient(-1.5, -9, 0.5, 0, -9, 5.5);
+    wg.addColorStop(0, "#cce4ff"); wg.addColorStop(0.5, "#2574F0"); wg.addColorStop(1, "#081840");
+    ctx.fillStyle = wg;
+    ctx.beginPath(); ctx.arc(0, -9, 5.5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "rgba(180,220,255,0.55)"; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.arc(0, -9, 5.5, 0, Math.PI*2); ctx.stroke();
+
+    // Ailettes
+    const fg2 = ctx.createLinearGradient(-22, 18, 0, 12);
+    fg2.addColorStop(0, "#5882c0"); fg2.addColorStop(1, "#82aad8");
+    ctx.fillStyle = fg2;
+    ctx.beginPath(); ctx.moveTo(-12,32); ctx.lineTo(-24,46); ctx.lineTo(-12,18); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo( 12,32); ctx.lineTo( 24,46); ctx.lineTo( 12,18); ctx.closePath(); ctx.fill();
+
+    // Bandes structurelles
+    ctx.strokeStyle = "rgba(140,180,240,0.55)"; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(-11, 8); ctx.lineTo(11, 8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-11,18); ctx.lineTo(11,18); ctx.stroke();
+
     ctx.restore();
 
-    // altitude readout overlay
-    const altKm = Math.round(ratio * 408);
-    ctx.fillStyle = "rgba(205,225,255,0.5)";
-    ctx.font = "600 10px 'JetBrains Mono', monospace";
+    // ── HUD — coin supérieur droit
+    const mono = "'JetBrains Mono', monospace";
     ctx.textAlign = "right";
-    ctx.fillText(`ALT  ${String(altKm).padStart(3, "0")} KM`, W - 18, 38);
+    ctx.fillStyle = phaseColor;
+    ctx.font = `700 9px ${mono}`;
+    ctx.fillText(phaseName, W - 11, 20);
+
+    ctx.fillStyle = "rgba(205,225,255,0.55)";
+    ctx.font = `500 9px ${mono}`;
+    ctx.fillText(`ALT  ${String(Math.round(ratio*408)).padStart(3,"0")} KM`, W - 11, 33);
+    ctx.fillText(`VEL  ${(7.66 + ratio*0.84).toFixed(2)} KM/S`, W - 11, 46);
+
+    // ── Barre de phase (bas)
+    const bX = 11, bW = W - 22, bY = H - 18;
+    ctx.strokeStyle = "rgba(100,160,255,0.18)";
+    ctx.lineWidth = 1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(bX, bY); ctx.lineTo(bX + bW, bY); ctx.stroke();
+
+    const barG = ctx.createLinearGradient(bX, 0, bX + bW, 0);
+    barG.addColorStop(0,    "#ffb547");
+    barG.addColorStop(0.295,"#ffb547");
+    barG.addColorStop(0.305,"#5ce3ff");
+    barG.addColorStop(0.715,"#5ce3ff");
+    barG.addColorStop(0.725,"#a6ff6b");
+    barG.addColorStop(1,    "#a6ff6b");
+    ctx.strokeStyle = barG;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = phaseColor; ctx.shadowBlur = 5;
+    ctx.beginPath(); ctx.moveTo(bX, bY); ctx.lineTo(bX + bW * ratio, bY); ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    [0.30, 0.72].forEach(m => {
+      const mx = bX + bW * m;
+      ctx.strokeStyle = `rgba(160,200,255,${ratio >= m ? 0.9 : 0.28})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(mx, bY-5); ctx.lineTo(mx, bY+5); ctx.stroke();
+    });
 
     t++;
     requestAnimationFrame(frame);
@@ -649,7 +827,7 @@ function initJourneyLeftCanvas() {
   frame();
 }
 
-/* ── Canvas: RIGHT journey panel (orbit) ─────────── */
+/* ── Canvas: RIGHT — Satellite 3 phases premium ─────────── */
 function initJourneyRightCanvas() {
   const canvas = $("#journey-right-canvas");
   if (!canvas) return;
@@ -665,9 +843,10 @@ function initJourneyRightCanvas() {
   resize();
   window.addEventListener("resize", resize);
 
-  const stars = Array.from({length: 140}, () => ({
+  const stars = Array.from({length: 130}, () => ({
     x: Math.random(), y: Math.random(),
     r: Math.random() * 1.4 + 0.3,
+    sp: Math.random() * 0.25 + 0.08,
     tw: Math.random() * Math.PI * 2,
   }));
   let t = 0;
@@ -676,122 +855,243 @@ function initJourneyRightCanvas() {
     ctx.clearRect(0, 0, W, H);
     const ratio = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--progress-ratio")) || 0;
 
-    // bg
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, "rgba(3,7,20,1)");
-    g.addColorStop(1, "rgba(8,16,40,0.8)");
-    ctx.fillStyle = g;
+    // ── Phases (0→0.30 TRANSIT · 0.30→0.72 DÉPLOIEMENT · 0.72→1 OPÉRATIONNEL)
+    const p1 = Math.min(1, ratio / 0.30);
+    const p2 = Math.min(1, Math.max(0, (ratio - 0.30) / 0.42));
+    const p3 = Math.min(1, Math.max(0, (ratio - 0.72) / 0.28));
+    const phaseName  = p3 > 0 ? "OPÉRATIONNEL" : p2 > 0 ? "DÉPLOIEMENT" : "TRANSIT";
+    const phaseColor = p3 > 0 ? "#a6ff6b"       : p2 > 0 ? "#5ce3ff"     : "#ffb547";
+
+    // ── Ciel (identique au panneau gauche)
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+    const bTop = Math.round(3 + ratio * 2);
+    skyGrad.addColorStop(0,   `rgb(${bTop},${bTop+4},${bTop+17})`);
+    skyGrad.addColorStop(0.6, `rgba(5,11,${Math.round(35+(1-ratio)*45)},0.8)`);
+    skyGrad.addColorStop(1,   `rgba(10,${Math.round(20+(1-ratio)*30)},${Math.round(60+(1-ratio)*80)},0.5)`);
+    ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, W, H);
 
-    // stars
+    // ── Étoiles (apparaissent avec ratio)
     stars.forEach(s => {
-      ctx.globalAlpha = 0.3 + 0.5 * (0.5 + 0.5 * Math.sin(t * 0.03 + s.tw));
+      const y = ((s.y * H) + t * s.sp) % H;
+      ctx.globalAlpha = ratio * (0.35 + 0.55 * (0.5 + 0.5 * Math.sin(t * 0.035 + s.tw)));
       ctx.fillStyle = "#cde4ff";
-      ctx.beginPath();
-      ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(s.x * W, y, s.r, 0, Math.PI * 2); ctx.fill();
     });
     ctx.globalAlpha = 1;
 
-    // Earth at bottom-left (photoreal)
+    // ── Terre photoréaliste (bas-gauche)
+    const earthR  = Math.floor(W * 0.8);
     const earthCx = W * 0.2;
     const earthCy = H + 40;
-    const earthR = Math.floor(W * 0.8);
 
-    // Atmosphere halo behind Earth
-    const halo = ctx.createRadialGradient(earthCx, earthCy, earthR * 0.95, earthCx, earthCy, earthR * 1.12);
-    halo.addColorStop(0, "rgba(92,170,255,0.45)");
-    halo.addColorStop(1, "rgba(79,157,255,0)");
-    ctx.fillStyle = halo;
-    ctx.beginPath(); ctx.arc(earthCx, earthCy, earthR * 1.12, 0, Math.PI * 2); ctx.fill();
+    const atmA = Math.max(0.1, 0.55 - ratio * 0.28);
+    const atmHalo = ctx.createRadialGradient(earthCx, earthCy, earthR*0.92, earthCx, earthCy, earthR*1.16);
+    atmHalo.addColorStop(0,   `rgba(92,170,255,${atmA})`);
+    atmHalo.addColorStop(0.5, `rgba(79,157,255,${atmA*0.35})`);
+    atmHalo.addColorStop(1,   "rgba(79,157,255,0)");
+    ctx.fillStyle = atmHalo;
+    ctx.beginPath(); ctx.arc(earthCx, earthCy, earthR*1.16, 0, Math.PI*2); ctx.fill();
 
-    // Photoreal sphere (only draws if texture ready — costly so sample density limited)
-    // For very large radii we render at half-res into an offscreen and upscale
-    const drewEarth = EarthTexture.drawSphere(ctx, earthCx, earthCy, earthR, t * 0.0008, 0.38);
+    const drewEarth = EarthTexture.drawSphere(ctx, earthCx, earthCy, earthR, t*0.0003, 0.32);
     if (!drewEarth) {
-      const eGrad = ctx.createRadialGradient(earthCx - earthR * 0.3, earthCy - earthR * 0.3, earthR * 0.05, earthCx, earthCy, earthR);
-      eGrad.addColorStop(0, "#5ea6ff");
-      eGrad.addColorStop(0.5, "#2e7af8");
-      eGrad.addColorStop(1, "#0a1e4a");
-      ctx.fillStyle = eGrad;
-      ctx.beginPath(); ctx.arc(earthCx, earthCy, earthR, 0, Math.PI * 2); ctx.fill();
+      const eg = ctx.createRadialGradient(earthCx-earthR*0.3, earthCy-earthR*0.3, earthR*0.05, earthCx, earthCy, earthR);
+      eg.addColorStop(0, "#5ea6ff"); eg.addColorStop(0.5, "#2e7af8"); eg.addColorStop(1, "#0a1e4a");
+      ctx.fillStyle = eg;
+      ctx.beginPath(); ctx.arc(earthCx, earthCy, earthR, 0, Math.PI*2); ctx.fill();
     }
-
-    // Bright rim
-    ctx.save();
-    ctx.globalCompositeOperation = "screen";
-    const rim = ctx.createRadialGradient(earthCx, earthCy, earthR * 0.96, earthCx, earthCy, earthR * 1.02);
-    rim.addColorStop(0, "rgba(140,200,255,0)");
-    rim.addColorStop(0.5, "rgba(140,200,255,0.25)");
-    rim.addColorStop(1, "rgba(140,200,255,0)");
-    ctx.fillStyle = rim;
-    ctx.beginPath(); ctx.arc(earthCx, earthCy, earthR * 1.02, 0, Math.PI * 2); ctx.fill();
+    ctx.save(); ctx.globalCompositeOperation = "screen";
+    const rimE = ctx.createRadialGradient(earthCx, earthCy, earthR*0.96, earthCx, earthCy, earthR*1.04);
+    rimE.addColorStop(0, "rgba(140,200,255,0)");
+    rimE.addColorStop(0.5, `rgba(140,200,255,${0.28-ratio*0.12})`);
+    rimE.addColorStop(1, "rgba(140,200,255,0)");
+    ctx.fillStyle = rimE;
+    ctx.beginPath(); ctx.arc(earthCx, earthCy, earthR*1.04, 0, Math.PI*2); ctx.fill();
     ctx.restore();
 
-    // Orbit ring
-    const orbitR = earthR + 60;
-    ctx.strokeStyle = "rgba(120,190,255,0.35)";
+    // ── Anneau orbital (apparaît avec p1)
+    const orbitR = earthR + 55;
+    ctx.strokeStyle = `rgba(120,190,255,${0.12 + p1 * 0.28})`;
     ctx.lineWidth = 1;
-    ctx.setLineDash([4, 6]);
-    ctx.beginPath(); ctx.arc(earthCx, earthCy, orbitR, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([4, 7]);
+    ctx.beginPath(); ctx.arc(earthCx, earthCy, orbitR, 0, Math.PI*2); ctx.stroke();
     ctx.setLineDash([]);
 
-    // Satellite position animates along arc with ratio
-    const satAngle = -Math.PI * 0.5 - ratio * Math.PI * 0.7; // from top to right
-    const satX = earthCx + Math.cos(satAngle) * orbitR;
-    const satY = earthCy + Math.sin(satAngle) * orbitR;
+    // ── Position satellite
+    const parkAngle = -Math.PI * 0.42;
+    const orbitParkX = earthCx + Math.cos(parkAngle) * orbitR;
+    const orbitParkY = earthCy + Math.sin(parkAngle) * orbitR;
 
-    // deploy stage: panels open as ratio > 0.3
-    const deploy = Math.min(1, Math.max(0, (ratio - 0.3) / 0.7));
+    let satX, satY, satBodyAngle;
+    if (ratio < 0.30) {
+      // Phase 1 TRANSIT: approche depuis haut-droit vers orbite (ease-out)
+      const ease = 1 - Math.pow(1 - p1, 2);
+      satX = W + 32 + (orbitParkX - W - 32) * ease;
+      satY = -38 + (orbitParkY + 38) * ease;
+      satBodyAngle = parkAngle + Math.PI * 0.5;
+    } else {
+      // Phases 2+3: dérive lente le long de l'anneau
+      const drift = (ratio - 0.30) * 0.12;
+      const curAngle = parkAngle + drift;
+      satX = earthCx + Math.cos(curAngle) * orbitR;
+      satY = earthCy + Math.sin(curAngle) * orbitR;
+      satBodyAngle = curAngle + Math.PI * 0.5;
+    }
 
-    // Satellite
+    // ── Traînée de transit (phase 1)
+    if (p1 > 0.05 && p1 < 0.97) {
+      for (let i = 1; i <= 10; i++) {
+        const frac = i * 0.09;
+        const ep = Math.max(0, p1 - frac);
+        const ease2 = 1 - Math.pow(1 - ep, 2);
+        const tx2 = W + 32 + (orbitParkX - W - 32) * ease2;
+        const ty2 = -38 + (orbitParkY + 38) * ease2;
+        ctx.globalAlpha = (1 - frac) * 0.45 * p1 * (1 - p1) * 3.2;
+        ctx.fillStyle = "#ffb547";
+        ctx.beginPath(); ctx.arc(tx2, ty2, 1.8 * (1 - frac * 0.5), 0, Math.PI*2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // ── Satellite
     ctx.save();
     ctx.translate(satX, satY);
-    ctx.rotate(satAngle + Math.PI / 2);
+    ctx.rotate(satBodyAngle);
 
-    // Solar panels (grow with deploy)
-    const panelW = 22 * deploy;
-    if (panelW > 0.5) {
-      ctx.fillStyle = "#2574F0";
-      ctx.fillRect(-panelW - 10, -6, panelW, 12);
-      ctx.fillRect(10, -6, panelW, 12);
-      // grid lines
-      ctx.strokeStyle = "rgba(200,220,255,0.4)";
-      ctx.lineWidth = 0.5;
-      for (let i = 0; i < 4; i++) {
-        const x1 = -panelW - 10 + i * (panelW / 4);
-        ctx.beginPath(); ctx.moveTo(x1, -6); ctx.lineTo(x1, 6); ctx.stroke();
-        const x2 = 10 + i * (panelW / 4);
-        ctx.beginPath(); ctx.moveTo(x2, -6); ctx.lineTo(x2, 6); ctx.stroke();
+    const panelSpan = 44 * p2;
+    const panelH = 13;
+
+    // Aura phase 3
+    if (p3 > 0) {
+      const glowR = 52 + p3 * 22;
+      const glow = ctx.createRadialGradient(0, 0, 6, 0, 0, glowR);
+      glow.addColorStop(0, `rgba(166,255,107,${p3*0.22})`);
+      glow.addColorStop(1, "rgba(166,255,107,0)");
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(0, 0, glowR, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Panneaux solaires gauche
+    if (panelSpan > 1) {
+      const pg = ctx.createLinearGradient(-panelSpan - 14, 0, -14, 0);
+      pg.addColorStop(0, "#1a4fa0"); pg.addColorStop(0.5, "#2574F0"); pg.addColorStop(1, "#3a80e0");
+      ctx.fillStyle = pg;
+      ctx.fillRect(-panelSpan - 14, -panelH/2, panelSpan, panelH);
+      ctx.strokeStyle = "rgba(150,200,255,0.35)"; ctx.lineWidth = 0.6;
+      for (let i = 0; i <= 5; i++) {
+        const px2 = -panelSpan - 14 + i * (panelSpan / 5);
+        ctx.beginPath(); ctx.moveTo(px2, -panelH/2); ctx.lineTo(px2, panelH/2); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(-panelSpan-14, 0); ctx.lineTo(-14, 0); ctx.stroke();
+      ctx.fillStyle = `rgba(180,220,255,${0.14*p2})`;
+      ctx.fillRect(-panelSpan-14, -panelH/2, panelSpan, panelH*0.35);
+    }
+
+    // Panneaux solaires droite
+    if (panelSpan > 1) {
+      const pg2 = ctx.createLinearGradient(14, 0, 14 + panelSpan, 0);
+      pg2.addColorStop(0, "#3a80e0"); pg2.addColorStop(0.5, "#2574F0"); pg2.addColorStop(1, "#1a4fa0");
+      ctx.fillStyle = pg2;
+      ctx.fillRect(14, -panelH/2, panelSpan, panelH);
+      ctx.strokeStyle = "rgba(150,200,255,0.35)"; ctx.lineWidth = 0.6;
+      for (let i = 0; i <= 5; i++) {
+        const px2 = 14 + i * (panelSpan / 5);
+        ctx.beginPath(); ctx.moveTo(px2, -panelH/2); ctx.lineTo(px2, panelH/2); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(14 + panelSpan, 0); ctx.stroke();
+      ctx.fillStyle = `rgba(180,220,255,${0.14*p2})`;
+      ctx.fillRect(14, -panelH/2, panelSpan, panelH*0.35);
+    }
+
+    // Corps satellite
+    const bodyW = 20, bodyH = 28;
+    const bodG = ctx.createLinearGradient(-bodyW/2, 0, bodyW/2, 0);
+    bodG.addColorStop(0,   "#8aaecc"); bodG.addColorStop(0.3,  "#dceeff");
+    bodG.addColorStop(0.65,"#c8e0f4"); bodG.addColorStop(1,   "#6890b0");
+    ctx.fillStyle = bodG;
+    ctx.beginPath(); ctx.roundRect(-bodyW/2, -bodyH/2, bodyW, bodyH, 3); ctx.fill();
+
+    // Bord lumineux de phase (pulse doux)
+    ctx.strokeStyle = phaseColor; ctx.lineWidth = 0.8;
+    ctx.globalAlpha = 0.55 + Math.sin(t * 0.08) * 0.22;
+    ctx.beginPath(); ctx.roundRect(-bodyW/2, -bodyH/2, bodyW, bodyH, 3); ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Détails structuraux corps
+    ctx.strokeStyle = "rgba(140,180,220,0.4)"; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(-bodyW/2+2, -bodyH/2+7); ctx.lineTo(bodyW/2-2, -bodyH/2+7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-bodyW/2+2,  bodyH/2-9); ctx.lineTo(bodyW/2-2,  bodyH/2-9); ctx.stroke();
+
+    // Antenne parabolique (se déploie avec p2)
+    if (p2 > 0.05) {
+      const dishY = -bodyH/2 - 8;
+      const dishW = 10 * p2;
+      ctx.strokeStyle = "#cde4ff"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, -bodyH/2); ctx.lineTo(0, dishY); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-dishW, dishY);
+      ctx.quadraticCurveTo(0, dishY + 7 * p2, dishW, dishY);
+      ctx.strokeStyle = "#8fc8ff"; ctx.lineWidth = 1.3;
+      ctx.stroke();
+      if (p2 > 0.7) {
+        ctx.fillStyle = phaseColor;
+        ctx.globalAlpha = p2 * 0.85;
+        ctx.beginPath(); ctx.arc(0, dishY + 2.5 * p2, 1.5, 0, Math.PI*2); ctx.fill();
+        ctx.globalAlpha = 1;
       }
     }
-    // Satellite body
-    ctx.fillStyle = "#e8f4ff";
-    ctx.fillRect(-10, -7, 20, 14);
-    ctx.strokeStyle = "#8fc0ff";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(-10, -7, 20, 14);
-    // dish
-    ctx.fillStyle = "#2574F0";
-    ctx.beginPath(); ctx.arc(0, 0, 3.5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#cde4ff";
-    ctx.beginPath(); ctx.arc(0, 0, 1.8, 0, Math.PI * 2); ctx.fill();
+
     ctx.restore();
 
-    // Signal pulse from satellite as deploy progresses
-    if (deploy > 0.5) {
-      const pulseR = ((t * 0.8) % 80);
-      ctx.strokeStyle = `rgba(92,227,255,${Math.max(0, 1 - pulseR / 80) * 0.7})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(satX, satY, pulseR, 0, Math.PI * 2); ctx.stroke();
+    // ── Impulsions signal (phase 3)
+    if (p3 > 0) {
+      for (let i = 0; i < 3; i++) {
+        const tOff = (t * 1.1 + i * 28) % 80;
+        const pulseA = Math.max(0, 1 - tOff / 80) * p3 * 0.75;
+        if (pulseA < 0.01) continue;
+        ctx.strokeStyle = `rgba(166,255,107,${pulseA})`;
+        ctx.lineWidth = 1.5 * (1 - tOff / 80);
+        ctx.beginPath(); ctx.arc(satX, satY, tOff, 0, Math.PI*2); ctx.stroke();
+      }
     }
 
-    // Readout
-    ctx.fillStyle = "rgba(205,225,255,0.55)";
-    ctx.font = "600 10px 'JetBrains Mono', monospace";
+    // ── HUD — coin supérieur GAUCHE (miroir du panneau gauche)
+    const mono = "'JetBrains Mono', monospace";
     ctx.textAlign = "left";
-    const phase = deploy > 0.95 ? "DEPLOYED" : deploy > 0.1 ? "DEPLOYING" : "ASCENT";
-    ctx.fillText(`SAT · ${phase}`, 18, 38);
+    ctx.fillStyle = phaseColor;
+    ctx.font = `700 9px ${mono}`;
+    ctx.fillText(phaseName, 11, 20);
+
+    ctx.fillStyle = "rgba(205,225,255,0.55)";
+    ctx.font = `500 9px ${mono}`;
+    ctx.fillText(`ORB  ${String(Math.round(ratio*408)).padStart(3,"0")} KM`, 11, 33);
+    ctx.fillText(`SIG  ${String(Math.round(ratio*100)).padStart(3," ")} %`,  11, 46);
+
+    // ── Barre de phase (bas) — identique panneau gauche
+    const bX = 11, bW = W - 22, bY = H - 18;
+    ctx.strokeStyle = "rgba(100,160,255,0.18)";
+    ctx.lineWidth = 1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(bX, bY); ctx.lineTo(bX + bW, bY); ctx.stroke();
+
+    const barG = ctx.createLinearGradient(bX, 0, bX + bW, 0);
+    barG.addColorStop(0,     "#ffb547");
+    barG.addColorStop(0.295, "#ffb547");
+    barG.addColorStop(0.305, "#5ce3ff");
+    barG.addColorStop(0.715, "#5ce3ff");
+    barG.addColorStop(0.725, "#a6ff6b");
+    barG.addColorStop(1,     "#a6ff6b");
+    ctx.strokeStyle = barG;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = phaseColor; ctx.shadowBlur = 5;
+    ctx.beginPath(); ctx.moveTo(bX, bY); ctx.lineTo(bX + bW * ratio, bY); ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    [0.30, 0.72].forEach(m => {
+      const mx = bX + bW * m;
+      ctx.strokeStyle = `rgba(160,200,255,${ratio >= m ? 0.9 : 0.28})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(mx, bY-5); ctx.lineTo(mx, bY+5); ctx.stroke();
+    });
 
     t++;
     requestAnimationFrame(frame);
@@ -1219,6 +1519,7 @@ function boot() {
   initSpaceCanvas();
   initConsoleEarth();
 
+  $("#btn-home")?.addEventListener("click", () => showScreen("intro"));
   $("#btn-start")?.addEventListener("click", () => { showScreen("form"); showStep(1); });
   $("#btn-next")?.addEventListener("click", () => { if (validateStep(state.step)) showStep(state.step + 1); });
   $("#btn-back")?.addEventListener("click", () => showStep(state.step - 1));

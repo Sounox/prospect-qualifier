@@ -688,6 +688,35 @@ a { color: inherit; }
   min-width: 0;
 }
 
+/* ─── Top bar (back button) ─── */
+.form-topbar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.btn-home-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px;
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(4,9,25,0.5);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
+}
+.btn-home-pill:hover {
+  color: #fff;
+  border-color: var(--border-hi);
+  background: var(--surface);
+}
+.btn-home-pill svg {
+  flex-shrink: 0;
+  color: currentColor;
+}
+
 /* ─── Progress bar (HUD variants) ─── */
 .progress-wrap {
   margin-bottom: 18px;
