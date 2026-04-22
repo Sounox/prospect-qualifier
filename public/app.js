@@ -4,19 +4,21 @@
    image from Wikimedia Commons and renders it to a sphere
    via per-pixel inverse projection on an offscreen canvas.
 --------------------------------------------------------- */
-const EARTH_TEXTURE_URL =
+const EARTH_DAY_TEXTURE_URL =
+  "https://upload.wikimedia.org/wikipedia/commons/c/c3/Solarsystemscope_texture_2k_earth_daymap.jpg";
+const EARTH_CLOUDS_TEXTURE_URL =
+  "https://upload.wikimedia.org/wikipedia/commons/e/ea/Solarsystemscope_texture_2k_earth_clouds.jpg";
+const EARTH_NIGHT_TEXTURE_URL =
+  "https://upload.wikimedia.org/wikipedia/commons/2/2f/Solarsystemscope_texture_2k_earth_nightmap.jpg";
+const EARTH_FALLBACK_TEXTURE_URL =
   "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/WorldMap-A_non-Frame.png/2048px-WorldMap-A_non-Frame.png";
-const EARTH_NIGHTLIGHTS_FALLBACK =
-  "https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/The_Earth_seen_from_Apollo_17.jpg/512px-The_Earth_seen_from_Apollo_17.jpg";
 
 const EarthTexture = (() => {
-  let _img = null, _imgData = null, _texW = 0, _texH = 0, _state = "idle";
+  let _day = null, _night = null, _clouds = null, _state = "idle";
   const listeners = [];
 
-  function load() {
-    if (_state !== "idle") return;
-    _state = "loading";
-    const tryLoad = (url, next) => {
+  function loadTexture(url) {
+    return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
@@ -26,24 +28,52 @@ const EarthTexture = (() => {
           off.height = img.naturalHeight;
           const octx = off.getContext("2d", { willReadFrequently: true });
           octx.drawImage(img, 0, 0);
-          _imgData = octx.getImageData(0, 0, off.width, off.height);
-          _texW = off.width;
-          _texH = off.height;
-          _img = img;
-          _state = "ready";
-          listeners.forEach(fn => fn());
+          resolve({
+            data: octx.getImageData(0, 0, off.width, off.height).data,
+            w: off.width,
+            h: off.height,
+          });
         } catch (e) {
-          if (next) tryLoad(next, null);
-          else _state = "failed";
+          reject(e);
         }
       };
-      img.onerror = () => {
-        if (next) tryLoad(next, null);
-        else _state = "failed";
-      };
+      img.onerror = reject;
       img.src = url;
-    };
-    tryLoad(EARTH_TEXTURE_URL, EARTH_NIGHTLIGHTS_FALLBACK);
+    });
+  }
+
+  function sample(tex, u, v) {
+    if (!tex) return [0, 0, 0];
+    const x = Math.min(tex.w - 1, Math.max(0, (u * tex.w) | 0));
+    const y = Math.min(tex.h - 1, Math.max(0, (v * tex.h) | 0));
+    const i = (y * tex.w + x) * 4;
+    return [tex.data[i], tex.data[i + 1], tex.data[i + 2]];
+  }
+
+  function load() {
+    if (_state !== "idle") return;
+    _state = "loading";
+    Promise.all([
+      loadTexture(EARTH_DAY_TEXTURE_URL),
+      loadTexture(EARTH_NIGHT_TEXTURE_URL).catch(() => null),
+      loadTexture(EARTH_CLOUDS_TEXTURE_URL).catch(() => null),
+    ]).then(([day, night, clouds]) => {
+      _day = day;
+      _night = night;
+      _clouds = clouds;
+      _state = "ready";
+      listeners.forEach(fn => fn());
+    }).catch(() => {
+      loadTexture(EARTH_FALLBACK_TEXTURE_URL).then((fallback) => {
+        _day = fallback;
+        _night = null;
+        _clouds = null;
+        _state = "ready";
+        listeners.forEach(fn => fn());
+      }).catch(() => {
+        _state = "failed";
+      });
+    });
   }
 
   // Cache rendered spheres so we don't re-raycast every frame.
@@ -67,9 +97,7 @@ const EarthTexture = (() => {
     const diam = R * 2;
     const out = targetCtx.createImageData(diam, diam);
     const data = out.data;
-    const texData = _imgData.data;
     const cosT = Math.cos(tilt), sinT = Math.sin(tilt);
-    // Light direction (sun). Tweaked to give a nice day/night terminator.
     const lx = -0.42, ly = -0.28, lz = 0.86;
     for (let py = 0; py < diam; py++) {
       const dy = py - R;
@@ -91,15 +119,31 @@ const EarthTexture = (() => {
         let u = (lon / (2 * Math.PI)) % 1;
         if (u < 0) u += 1;
         const v = 0.5 - lat / Math.PI;
-        const tx = Math.min(_texW - 1, (u * _texW) | 0);
-        const tyi = Math.min(_texH - 1, Math.max(0, (v * _texH) | 0));
-        const tIdx = (tyi * _texW + tx) * 4;
+        const day = sample(_day, u, v);
+        const night = _night ? sample(_night, u, v) : day;
+        const clouds = _clouds ? sample(_clouds, u, v) : null;
+
         let lambert = nx * lx + ty * ly + tz * lz;
-        lambert = Math.max(0.08, Math.min(1, lambert * 0.9 + 0.35));
-        const rim = Math.pow(1 - nz, 3) * 0.25;
-        data[idx]     = Math.min(255, texData[tIdx] * lambert + rim * 120);
-        data[idx + 1] = Math.min(255, texData[tIdx + 1] * lambert + rim * 150);
-        data[idx + 2] = Math.min(255, texData[tIdx + 2] * lambert + rim * 220);
+        lambert = Math.max(0, Math.min(1, lambert * 0.95 + 0.05));
+        const daylight = Math.max(0.08, lambert);
+        const nightFactor = Math.pow(Math.max(0, 1 - daylight), 1.35);
+
+        let r = day[0] * daylight + night[0] * nightFactor * 1.2;
+        let g = day[1] * daylight + night[1] * nightFactor * 1.2;
+        let b = day[2] * daylight + night[2] * nightFactor * 1.35;
+
+        if (clouds) {
+          const cloudLuma = (clouds[0] + clouds[1] + clouds[2]) / (255 * 3);
+          const cloudAlpha = cloudLuma * (0.12 + daylight * 0.5);
+          r = r * (1 - cloudAlpha) + 255 * cloudAlpha;
+          g = g * (1 - cloudAlpha) + 255 * cloudAlpha;
+          b = b * (1 - cloudAlpha) + 255 * cloudAlpha;
+        }
+
+        const rim = Math.pow(1 - nz, 3) * 0.22;
+        data[idx]     = Math.min(255, r + rim * 120);
+        data[idx + 1] = Math.min(255, g + rim * 155);
+        data[idx + 2] = Math.min(255, b + rim * 230);
         data[idx + 3] = 255;
       }
     }
@@ -1233,27 +1277,31 @@ function initSpaceCanvas() {
   frame();
 }
 
+let earthIconCounter = 0;
 function progressEarthIcon() {
+  earthIconCounter += 1;
+  const id = `earth-icon-${earthIconCounter}`;
   return `
     <svg class="progress-icon progress-icon-earth" viewBox="0 0 36 36" aria-hidden="true">
-      <circle cx="18" cy="18" r="14" fill="#092050"></circle>
-      <circle cx="18" cy="18" r="13.2" fill="#2574f0"></circle>
-      <ellipse cx="13.6" cy="12.6" rx="6.4" ry="5.1" fill="rgba(168,225,255,0.46)"></ellipse>
-
-      <path d="M9.2 14.7c1.8-2.5 4.1-3.7 6.5-3.5 1.7.2 3.1 1.1 3.8 2.4-.8 1.8-2.4 2.5-4.4 2.8-1.9.3-3.7.8-4.7 2.3-.8 1.2-.9 2.8 0 3.9 1 1.3 2.8 2 5.2 1.9-.8.8-2 .9-3.3.7-2.1-.4-3.8-1.7-4.7-3.6-.9-1.9-.6-4.3.4-6.9z"
-        fill="#65d589"></path>
-      <path d="M20.6 9.6c2.4.5 4.5 1.8 5.9 3.7.9 1.2 1.3 2.6 1.1 3.9-.3 1.7-1.6 3.1-3.6 3.8-1.4.5-2.8.6-3.9.3 1.1-.9 1.8-2 2.1-3.2.2-.8 0-1.7-.5-2.5-.5-.8-1.3-1.4-2.2-1.8z"
-        fill="#5bcc82"></path>
-      <path d="M14.2 23.8c.9-.8 1.9-1.1 3-1 1 .1 1.8.5 2.3 1.2.7 1 .8 2.3.3 3.6-2.1-.4-4.2-1.7-5.6-3.8z"
-        fill="#4ebf76"></path>
-
-      <path d="M10.1 11.2c1.5-.9 3-.8 4.1.2" stroke="rgba(255,255,255,0.78)" stroke-width="1.2" stroke-linecap="round"></path>
-      <path d="M16.7 9.9c2.4-.8 4.8-.5 6.6.8" stroke="rgba(255,255,255,0.72)" stroke-width="1.1" stroke-linecap="round"></path>
-      <path d="M21.9 14.8c1.6-.2 3.1.2 4.4 1.1" stroke="rgba(255,255,255,0.66)" stroke-width="1" stroke-linecap="round"></path>
-      <path d="M8.8 18.1c2.2-.8 4.3-.6 6.2.6" stroke="rgba(255,255,255,0.62)" stroke-width="1" stroke-linecap="round"></path>
-      <path d="M15.4 20.5c1.9-.6 3.7-.5 5.2.4" stroke="rgba(255,255,255,0.56)" stroke-width="0.95" stroke-linecap="round"></path>
-
-      <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(167,216,255,0.78)" stroke-width="1"></circle>
+      <defs>
+        <clipPath id="${id}-clip">
+          <circle cx="18" cy="18" r="13.6"></circle>
+        </clipPath>
+        <radialGradient id="${id}-shade" cx="34%" cy="28%" r="72%">
+          <stop offset="0%" stop-color="rgba(255,255,255,0.22)"></stop>
+          <stop offset="48%" stop-color="rgba(255,255,255,0)"></stop>
+          <stop offset="76%" stop-color="rgba(4,11,30,0.22)"></stop>
+          <stop offset="100%" stop-color="rgba(1,5,16,0.76)"></stop>
+        </radialGradient>
+      </defs>
+      <circle cx="18" cy="18" r="13.8" fill="#061735"></circle>
+      <g clip-path="url(#${id}-clip)">
+        <image href="${EARTH_DAY_TEXTURE_URL}" x="-10" y="4.5" width="56" height="28" preserveAspectRatio="xMidYMid slice"></image>
+        <image href="${EARTH_NIGHT_TEXTURE_URL}" x="-10" y="4.5" width="56" height="28" preserveAspectRatio="xMidYMid slice" opacity="0.32"></image>
+        <image href="${EARTH_CLOUDS_TEXTURE_URL}" x="-10" y="4.5" width="56" height="28" preserveAspectRatio="xMidYMid slice" opacity="0.25"></image>
+        <rect x="4.2" y="4.2" width="27.6" height="27.6" fill="url(#${id}-shade)"></rect>
+      </g>
+      <circle cx="18" cy="18" r="13.8" fill="none" stroke="rgba(150,210,255,0.85)" stroke-width="1"></circle>
     </svg>
   `;
 }
