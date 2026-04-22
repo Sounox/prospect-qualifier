@@ -79,7 +79,7 @@ const EarthTexture = (() => {
   // Cache rendered spheres so we don't re-raycast every frame.
   // Key: R (rounded) + tilt * 10 rounded. Re-render when rotation drifts
   // by more than this threshold (smaller = smoother continents, more CPU).
-  const EARTH_REGEN_THRESHOLD = 0.005;
+  const EARTH_REGEN_THRESHOLD = 0.0008;
   const sphereCache = new Map();
   function getSphereCanvas(R, tilt) {
     const key = R + ":" + Math.round(tilt * 100);
@@ -119,7 +119,8 @@ const EarthTexture = (() => {
         const lat = Math.asin(Math.max(-1, Math.min(1, ty)));
         let u = (lon / (2 * Math.PI)) % 1;
         if (u < 0) u += 1;
-        const v = 0.5 - lat / Math.PI;
+        // Inverse les pôles pour corriger l'orientation N/S.
+        const v = 0.5 + lat / Math.PI;
         const day = sample(_day, u, v);
         const night = _night ? sample(_night, u, v) : day;
         let cloudU = u;
@@ -169,7 +170,7 @@ const EarthTexture = (() => {
     drawSphere(ctx, cx, cy, R, rot, tilt = 0.4) {
       if (_state !== "ready") return false;
       // Cap render size for very large spheres (perf)
-      const renderR = Math.min(R, 360);
+      const renderR = Math.min(R, 320);
       const entry = getSphereCanvas(renderR, tilt);
       if (Math.abs(entry.lastRot - rot) > EARTH_REGEN_THRESHOLD || entry.lastRot === Infinity) {
         const img = renderSphereTo(entry.ctx, renderR, rot, tilt);
@@ -735,64 +736,96 @@ function initJourneyLeftCanvas() {
     ctx.translate(rocketX, rocketY);
     ctx.rotate(tilt);
 
-    // Flamme extérieure
-    const fg = ctx.createLinearGradient(0, 32, 0, 32 + flameL);
-    fg.addColorStop(0,   `rgba(255,195,90,${0.96*flameI})`);
-    fg.addColorStop(0.35,`rgba(255,110,50,${0.72*flameI})`);
-    fg.addColorStop(1,   "rgba(255,50,20,0)");
+    // Panache externe
+    const plume = ctx.createRadialGradient(0, 34, 2, 0, 34 + flameL * 0.7, 22 + flameL);
+    plume.addColorStop(0, `rgba(255,240,170,${0.42 * flameI})`);
+    plume.addColorStop(0.35, `rgba(255,150,80,${0.3 * flameI})`);
+    plume.addColorStop(1, "rgba(255,80,32,0)");
+    ctx.fillStyle = plume;
+    ctx.beginPath(); ctx.arc(0, 33 + flameL * 0.45, 18 + flameL * 0.3, 0, Math.PI * 2); ctx.fill();
+
+    // Flamme principale
+    const fg = ctx.createLinearGradient(0, 30, 0, 30 + flameL);
+    fg.addColorStop(0,   `rgba(255,226,144,${0.98 * flameI})`);
+    fg.addColorStop(0.45,`rgba(255,126,62,${0.76 * flameI})`);
+    fg.addColorStop(1,   "rgba(255,52,24,0)");
     ctx.fillStyle = fg;
     ctx.beginPath();
-    ctx.moveTo(-11, 32);
-    ctx.quadraticCurveTo(0, 32 + flameL, 11, 32);
+    ctx.moveTo(-10, 30);
+    ctx.quadraticCurveTo(0, 30 + flameL, 10, 30);
     ctx.closePath(); ctx.fill();
 
-    // Flamme centrale (noyau blanc)
-    const fc = ctx.createLinearGradient(0, 32, 0, 32 + flameL * 0.52);
+    // Noyau de combustion
+    const fc = ctx.createLinearGradient(0, 30, 0, 30 + flameL * 0.55);
     fc.addColorStop(0, `rgba(255,255,255,${flameI})`);
-    fc.addColorStop(1, "rgba(255,210,120,0)");
+    fc.addColorStop(1, "rgba(255,215,120,0)");
     ctx.fillStyle = fc;
     ctx.beginPath();
-    ctx.moveTo(-5, 32); ctx.quadraticCurveTo(0, 32 + flameL*0.52, 5, 32);
+    ctx.moveTo(-4.2, 30); ctx.quadraticCurveTo(0, 30 + flameL * 0.55, 4.2, 30);
     ctx.closePath(); ctx.fill();
 
-    // Corps fusée (12px large, 46px haut)
-    const bg = ctx.createLinearGradient(-12, 0, 12, 0);
-    bg.addColorStop(0,   "#c8d8f4");
-    bg.addColorStop(0.35,"#f4f8ff");
-    bg.addColorStop(0.65,"#e4eeff");
-    bg.addColorStop(1,   "#86aedc");
+    // Buse
+    const nozzle = ctx.createLinearGradient(-4, 24, 4, 34);
+    nozzle.addColorStop(0, "#596579");
+    nozzle.addColorStop(0.5, "#7f8da3");
+    nozzle.addColorStop(1, "#3a4456");
+    ctx.fillStyle = nozzle;
+    ctx.beginPath();
+    ctx.moveTo(-5, 24); ctx.lineTo(5, 24); ctx.lineTo(4, 31); ctx.lineTo(-4, 31); ctx.closePath(); ctx.fill();
+
+    // Corps fusée
+    const bg = ctx.createLinearGradient(-12, -30, 12, 28);
+    bg.addColorStop(0,   "#b7c6d8");
+    bg.addColorStop(0.38,"#f2f7ff");
+    bg.addColorStop(0.68,"#dce8f7");
+    bg.addColorStop(1,   "#7d97b2");
     ctx.fillStyle = bg;
     ctx.beginPath();
-    ctx.moveTo(-12, 32); ctx.lineTo(-12, -10);
+    ctx.moveTo(-12, 24); ctx.lineTo(-12, -10);
     ctx.quadraticCurveTo(-12, -40, 0, -40);
-    ctx.quadraticCurveTo( 12, -40, 12, -10);
-    ctx.lineTo(12, 32); ctx.closePath(); ctx.fill();
+    ctx.quadraticCurveTo(12, -40, 12, -10);
+    ctx.lineTo(12, 24); ctx.closePath(); ctx.fill();
 
-    // Reflet cone
-    ctx.fillStyle = "rgba(255,255,255,0.38)";
+    // Ombre latérale pour casser l'effet cartoon
+    const bodyShadow = ctx.createLinearGradient(-12, 0, 12, 0);
+    bodyShadow.addColorStop(0, "rgba(10,24,48,0.32)");
+    bodyShadow.addColorStop(0.5, "rgba(10,24,48,0)");
+    bodyShadow.addColorStop(1, "rgba(10,24,48,0.26)");
+    ctx.fillStyle = bodyShadow;
     ctx.beginPath();
-    ctx.moveTo(-3, -10); ctx.quadraticCurveTo(-5, -34, 0, -40);
-    ctx.quadraticCurveTo(-1, -28, -3, -10); ctx.closePath(); ctx.fill();
+    ctx.moveTo(-12, 24); ctx.lineTo(-12, -10);
+    ctx.quadraticCurveTo(-12, -40, 0, -40);
+    ctx.quadraticCurveTo(12, -40, 12, -10);
+    ctx.lineTo(12, 24); ctx.closePath(); ctx.fill();
+
+    // Reflet longitudinal
+    ctx.fillStyle = "rgba(255,255,255,0.34)";
+    ctx.beginPath();
+    ctx.moveTo(-2.6, -8); ctx.quadraticCurveTo(-4.6, -31, 0, -39);
+    ctx.quadraticCurveTo(-0.6, -24, -2.6, -8); ctx.closePath(); ctx.fill();
 
     // Hublot
-    const wg = ctx.createRadialGradient(-1.5, -9, 0.5, 0, -9, 5.5);
-    wg.addColorStop(0, "#cce4ff"); wg.addColorStop(0.5, "#2574F0"); wg.addColorStop(1, "#081840");
+    const wg = ctx.createRadialGradient(-1.2, -10, 0.5, 0, -10, 5.6);
+    wg.addColorStop(0, "#d8edff"); wg.addColorStop(0.45, "#2d72db"); wg.addColorStop(1, "#081a3f");
     ctx.fillStyle = wg;
-    ctx.beginPath(); ctx.arc(0, -9, 5.5, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = "rgba(180,220,255,0.55)"; ctx.lineWidth = 0.5;
-    ctx.beginPath(); ctx.arc(0, -9, 5.5, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, -10, 5.6, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "rgba(190,224,255,0.58)"; ctx.lineWidth = 0.6;
+    ctx.beginPath(); ctx.arc(0, -10, 5.6, 0, Math.PI * 2); ctx.stroke();
 
     // Ailettes
-    const fg2 = ctx.createLinearGradient(-22, 18, 0, 12);
-    fg2.addColorStop(0, "#5882c0"); fg2.addColorStop(1, "#82aad8");
-    ctx.fillStyle = fg2;
-    ctx.beginPath(); ctx.moveTo(-12,32); ctx.lineTo(-24,46); ctx.lineTo(-12,18); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo( 12,32); ctx.lineTo( 24,46); ctx.lineTo( 12,18); ctx.closePath(); ctx.fill();
+    const finG = ctx.createLinearGradient(-24, 16, -10, 36);
+    finG.addColorStop(0, "#5a7ea9"); finG.addColorStop(1, "#394f70");
+    ctx.fillStyle = finG;
+    ctx.beginPath(); ctx.moveTo(-12,24); ctx.lineTo(-24,42); ctx.lineTo(-12,14); ctx.closePath(); ctx.fill();
+    const finD = ctx.createLinearGradient(10, 16, 24, 36);
+    finD.addColorStop(0, "#6f94be"); finD.addColorStop(1, "#425b7f");
+    ctx.fillStyle = finD;
+    ctx.beginPath(); ctx.moveTo(12,24); ctx.lineTo(24,42); ctx.lineTo(12,14); ctx.closePath(); ctx.fill();
 
-    // Bandes structurelles
-    ctx.strokeStyle = "rgba(140,180,240,0.55)"; ctx.lineWidth = 0.8;
-    ctx.beginPath(); ctx.moveTo(-11, 8); ctx.lineTo(11, 8); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-11,18); ctx.lineTo(11,18); ctx.stroke();
+    // Cerclages structurels
+    ctx.strokeStyle = "rgba(126,166,210,0.56)"; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(-11, 4); ctx.lineTo(11, 4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-11, 14); ctx.lineTo(11, 14); ctx.stroke();
 
     ctx.restore();
 
@@ -987,43 +1020,55 @@ function initJourneyRightCanvas() {
 
     // Panneaux solaires gauche
     if (panelSpan > 1) {
-      const pg = ctx.createLinearGradient(-panelSpan - 14, 0, -14, 0);
-      pg.addColorStop(0, "#1a4fa0"); pg.addColorStop(0.5, "#2574F0"); pg.addColorStop(1, "#3a80e0");
+      const pg = ctx.createLinearGradient(-panelSpan - 14, -panelH/2, -14, panelH/2);
+      pg.addColorStop(0, "#133d78"); pg.addColorStop(0.45, "#2a6dc2"); pg.addColorStop(1, "#5497e8");
       ctx.fillStyle = pg;
       ctx.fillRect(-panelSpan - 14, -panelH/2, panelSpan, panelH);
-      ctx.strokeStyle = "rgba(150,200,255,0.35)"; ctx.lineWidth = 0.6;
+      ctx.strokeStyle = "rgba(150,200,255,0.32)"; ctx.lineWidth = 0.55;
       for (let i = 0; i <= 5; i++) {
         const px2 = -panelSpan - 14 + i * (panelSpan / 5);
         ctx.beginPath(); ctx.moveTo(px2, -panelH/2); ctx.lineTo(px2, panelH/2); ctx.stroke();
       }
       ctx.beginPath(); ctx.moveTo(-panelSpan-14, 0); ctx.lineTo(-14, 0); ctx.stroke();
-      ctx.fillStyle = `rgba(180,220,255,${0.14*p2})`;
-      ctx.fillRect(-panelSpan-14, -panelH/2, panelSpan, panelH*0.35);
+      ctx.fillStyle = `rgba(190,224,255,${0.18 * p2})`;
+      ctx.fillRect(-panelSpan-14, -panelH/2, panelSpan, panelH*0.28);
     }
 
     // Panneaux solaires droite
     if (panelSpan > 1) {
-      const pg2 = ctx.createLinearGradient(14, 0, 14 + panelSpan, 0);
-      pg2.addColorStop(0, "#3a80e0"); pg2.addColorStop(0.5, "#2574F0"); pg2.addColorStop(1, "#1a4fa0");
+      const pg2 = ctx.createLinearGradient(14, -panelH/2, 14 + panelSpan, panelH/2);
+      pg2.addColorStop(0, "#5497e8"); pg2.addColorStop(0.55, "#2a6dc2"); pg2.addColorStop(1, "#133d78");
       ctx.fillStyle = pg2;
       ctx.fillRect(14, -panelH/2, panelSpan, panelH);
-      ctx.strokeStyle = "rgba(150,200,255,0.35)"; ctx.lineWidth = 0.6;
+      ctx.strokeStyle = "rgba(150,200,255,0.32)"; ctx.lineWidth = 0.55;
       for (let i = 0; i <= 5; i++) {
         const px2 = 14 + i * (panelSpan / 5);
         ctx.beginPath(); ctx.moveTo(px2, -panelH/2); ctx.lineTo(px2, panelH/2); ctx.stroke();
       }
       ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(14 + panelSpan, 0); ctx.stroke();
-      ctx.fillStyle = `rgba(180,220,255,${0.14*p2})`;
-      ctx.fillRect(14, -panelH/2, panelSpan, panelH*0.35);
+      ctx.fillStyle = `rgba(190,224,255,${0.18 * p2})`;
+      ctx.fillRect(14, -panelH/2, panelSpan, panelH*0.28);
     }
 
     // Corps satellite
     const bodyW = 20, bodyH = 28;
-    const bodG = ctx.createLinearGradient(-bodyW/2, 0, bodyW/2, 0);
-    bodG.addColorStop(0,   "#8aaecc"); bodG.addColorStop(0.3,  "#dceeff");
-    bodG.addColorStop(0.65,"#c8e0f4"); bodG.addColorStop(1,   "#6890b0");
+    const bodG = ctx.createLinearGradient(-bodyW/2, -bodyH/2, bodyW/2, bodyH/2);
+    bodG.addColorStop(0,   "#f5faff");
+    bodG.addColorStop(0.35,"#dce9f6");
+    bodG.addColorStop(0.7, "#b8cde2");
+    bodG.addColorStop(1,   "#7088a1");
     ctx.fillStyle = bodG;
     ctx.beginPath(); ctx.roundRect(-bodyW/2, -bodyH/2, bodyW, bodyH, 3); ctx.fill();
+
+    // Ombre et reflet pour un volume plus crédible
+    const satShadow = ctx.createLinearGradient(-bodyW/2, 0, bodyW/2, 0);
+    satShadow.addColorStop(0, "rgba(12,28,52,0.3)");
+    satShadow.addColorStop(0.45, "rgba(12,28,52,0)");
+    satShadow.addColorStop(1, "rgba(12,28,52,0.24)");
+    ctx.fillStyle = satShadow;
+    ctx.beginPath(); ctx.roundRect(-bodyW/2, -bodyH/2, bodyW, bodyH, 3); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.26)";
+    ctx.fillRect(-bodyW/2 + 2, -bodyH/2 + 2, 3.5, bodyH - 10);
 
     // Bord lumineux de phase (pulse doux)
     ctx.strokeStyle = phaseColor; ctx.lineWidth = 0.8;
@@ -1319,29 +1364,65 @@ function progressEarthIcon() {
   `;
 }
 
+let satelliteIconCounter = 0;
 function progressSatelliteIcon() {
+  satelliteIconCounter += 1;
+  const id = `sat-icon-${satelliteIconCounter}`;
   return `
     <svg class="progress-icon progress-icon-sat" viewBox="0 0 42 42" aria-hidden="true">
+      <defs>
+        <linearGradient id="${id}-panel" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#4a96ff"></stop>
+          <stop offset="45%" stop-color="#2b6fd2"></stop>
+          <stop offset="100%" stop-color="#1a4588"></stop>
+        </linearGradient>
+        <linearGradient id="${id}-body" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#f6fbff"></stop>
+          <stop offset="55%" stop-color="#d5e5f5"></stop>
+          <stop offset="100%" stop-color="#9fb5cc"></stop>
+        </linearGradient>
+      </defs>
       <circle cx="21" cy="21" r="20" fill="rgba(8,22,52,0.72)"></circle>
       <g transform="translate(21 21) rotate(-18)">
-        <rect x="-16.5" y="-3.2" width="9" height="6.4" rx="1.2" fill="#2678f4"></rect>
-        <rect x="7.5" y="-3.2" width="9" height="6.4" rx="1.2" fill="#2678f4"></rect>
-        <rect x="-7" y="-5.5" width="14" height="11" rx="2" fill="#dfeeff"></rect>
-        <rect x="-2.6" y="-2.2" width="5.2" height="4.4" rx="1" fill="#0b1e4b"></rect>
+        <rect x="-18.5" y="-3.6" width="10.5" height="7.2" rx="1.3" fill="url(#${id}-panel)"></rect>
+        <rect x="8" y="-3.6" width="10.5" height="7.2" rx="1.3" fill="url(#${id}-panel)"></rect>
+        <rect x="-7.6" y="-6.2" width="15.2" height="12.4" rx="2.2" fill="url(#${id}-body)"></rect>
+        <rect x="-2.7" y="-2.4" width="5.4" height="4.8" rx="1" fill="#0b1e4b"></rect>
+        <path d="M-6.4 -4.4H6.4" stroke="rgba(110,150,185,0.55)" stroke-width="0.6"></path>
+        <path d="M-6.4 -0.2H6.4" stroke="rgba(110,150,185,0.55)" stroke-width="0.6"></path>
+        <path d="M-6.4 4H6.4" stroke="rgba(110,150,185,0.55)" stroke-width="0.6"></path>
+        <circle cx="0" cy="-6.9" r="1.2" fill="#d7e9ff"></circle>
       </g>
+      <circle cx="21" cy="21" r="18.4" fill="none" stroke="rgba(112,188,255,0.34)" stroke-width="0.8"></circle>
       <circle cx="21" cy="21" r="20" fill="none" stroke="rgba(165,214,255,0.46)" stroke-width="1"></circle>
     </svg>
   `;
 }
 
+let rocketIconCounter = 0;
 function progressRocketIcon() {
+  rocketIconCounter += 1;
+  const id = `rocket-icon-${rocketIconCounter}`;
   return `
     <svg class="progress-icon progress-icon-rocket" viewBox="0 0 34 34" aria-hidden="true">
+      <defs>
+        <linearGradient id="${id}-body" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#f8fcff"></stop>
+          <stop offset="50%" stop-color="#dae8f7"></stop>
+          <stop offset="100%" stop-color="#9cb3c9"></stop>
+        </linearGradient>
+        <linearGradient id="${id}-fin" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#6f98c8"></stop>
+          <stop offset="100%" stop-color="#406898"></stop>
+        </linearGradient>
+      </defs>
       <g transform="translate(17 17) rotate(90) translate(-17 -17)">
-        <path d="M17 6.3c3.8 1.8 6.5 5.1 7.3 9.4l-3.4 3.4H13.1l-3.4-3.4c.8-4.3 3.5-7.6 7.3-9.4z" fill="#eaf4ff"></path>
-        <path d="M11.4 19.1h11.2l2.3 3.8H9.1l2.3-3.8z" fill="#8cb5e7"></path>
-        <path d="M13.8 22.9l-2.9 3.1v-3.1h2.9zM20.2 22.9h2.9v3.1l-2.9-3.1z" fill="#4f87cb"></path>
-        <circle cx="17" cy="14.2" r="2.4" fill="#2d79ef"></circle>
+        <path d="M17 6c4.3 2.1 7.2 5.7 7.8 10.3l-3.8 3.8H13l-3.8-3.8C9.8 11.7 12.7 8.1 17 6z" fill="url(#${id}-body)"></path>
+        <path d="M10.9 20.1h12.2l2.6 4.1H8.3l2.6-4.1z" fill="url(#${id}-fin)"></path>
+        <path d="M13.3 24.2l-3.2 3.3v-3.3h3.2zM20.7 24.2h3.2v3.3l-3.2-3.3z" fill="#4c79ad"></path>
+        <circle cx="17" cy="14.1" r="2.5" fill="#1e5dc0"></circle>
+        <circle cx="17" cy="14.1" r="1.1" fill="#9ed0ff"></circle>
+        <path d="M15.3 9.8c.9-.6 1.9-.7 2.9-.1" stroke="rgba(255,255,255,0.65)" stroke-width="0.7" stroke-linecap="round"></path>
       </g>
     </svg>
   `;
