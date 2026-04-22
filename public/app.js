@@ -199,8 +199,8 @@ const MoonRenderer = {
 
 const TOTAL_STEPS = 11;
 const EARTH_ROT_BASE = 1.05;
-const EARTH_ROT_SPEED_INTRO = 0.00022; // rad / ms
-const EARTH_ROT_SPEED_SIDE = 0.00025;  // rad / ms
+const EARTH_ROT_SPEED_INTRO = 0; // static globe
+const EARTH_ROT_SPEED_SIDE = 0;  // static globe
 
 // Named mission phases — one per step
 const MISSION_PHASES = [
@@ -328,7 +328,7 @@ function showScreen(name) {
   state.screen = name;
   $$(".screen").forEach(s => s.classList.toggle("is-active", s.dataset.screen === name));
   window.scrollTo({ top: 0, behavior: "smooth" });
-  if (name === "form") setTimeout(() => initJourneyCanvases(), 50);
+  if (name === "form") updateJourneyTelemetry();
   if (name === "confirm") setTimeout(() => initConfirmOrbit(), 50);
   saveState();
 }
