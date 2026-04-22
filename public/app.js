@@ -135,25 +135,23 @@ const EarthTexture = (() => {
 EarthTexture.load();
 
 /* ─────────────────────────────────────────────────────
-   LUNE PROCÉDURALE — rendu par raycasting sans texture
-   Cratères + mares + ombrage Lambert + rim argenté
+   LUNE PROCÉDURALE — pre-render de 60 frames async
+   Chaque frame est calculée dans un setTimeout séparé
+   pour ne jamais bloquer le thread principal.
+   L'animation loop fait uniquement drawImage → 60 fps.
 ───────────────────────────────────────────────────── */
 const MoonRenderer = (() => {
-  // Générateur pseudo-aléatoire seeded (reproductible)
   function rng(seed) {
     let s = seed >>> 0;
     return () => { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s / 0xffffffff; };
   }
   const r = rng(137);
 
-  // Mares lunaires (zones sombres)
   const MARE = Array.from({length: 7}, () => [
-    (r() - 0.5) * Math.PI * 1.8,   // lon
-    (r() - 0.5) * Math.PI * 0.6,   // lat (sin)
-    0.14 + r() * 0.18,              // rayon angulaire
+    (r() - 0.5) * Math.PI * 1.8,
+    (r() - 0.5) * Math.PI * 0.6,
+    0.14 + r() * 0.18,
   ]);
-
-  // Cratères : [lon, lat_sin, rayon, profondeur]
   const CRATERS = Array.from({length: 38}, () => [
     (r() - 0.5) * Math.PI * 2,
     (r() - 0.5) * 0.9,
@@ -161,90 +159,82 @@ const MoonRenderer = (() => {
     0.45 + r() * 0.45,
   ]);
 
-  const cache = new Map();
+  const FRAME_COUNT = 60;   // 6° par frame → animation très fluide
+  let _frames  = null;      // null = pas encore prêt
+  let _loaded  = 0;         // 0..1 progression
+  let _started = false;
 
-  function renderR(R, rot) {
-    const diam = R * 2;
+  function renderFrame(rR, rot) {
+    const diam = rR * 2;
     const buf  = new Uint8ClampedArray(diam * diam * 4);
-    const lx = -0.28, ly = -0.18, lz = 0.94;  // lumière frontale + haut-gauche
-
+    const lx = -0.28, ly = -0.18, lz = 0.94;
     for (let py = 0; py < diam; py++) {
-      const dy = (py - R) / R;
+      const dy = (py - rR) / rR;
       for (let px = 0; px < diam; px++) {
-        const dx = (px - R) / R;
+        const dx = (px - rR) / rR;
         const d2 = dx * dx + dy * dy;
         const base = (py * diam + px) * 4;
         if (d2 > 1) { buf[base + 3] = 0; continue; }
-
         const nz = Math.sqrt(1 - d2);
         const lon = Math.atan2(dx, nz) + rot;
-
-        // Lambert
         let lam = dx * lx + dy * ly + nz * lz;
         lam = Math.max(0.04, Math.min(1, lam * 0.86 + 0.26));
-
-        // Terrain de base
         let lum = 0.68
           + Math.sin(lon * 19 + dy * 13) * 0.04
-          + Math.cos(lon * 7  - dy * 9 ) * 0.03
+          + Math.cos(lon *  7 - dy *  9) * 0.03
           + Math.sin(lon * 41 + dy * 37) * 0.012;
-
-        // Mares
         for (const [mLon, mLat, mR] of MARE) {
-          const dLon = Math.sin(lon - mLon);
-          const dLat = dy - mLat;
+          const dLon = Math.sin(lon - mLon), dLat = dy - mLat;
           const dist = Math.sqrt(dLon * dLon + dLat * dLat);
-          if (dist < mR) {
-            const blend = Math.pow(1 - dist / mR, 1.4);
-            lum *= (1 - blend * 0.44);
-          }
+          if (dist < mR) lum *= 1 - Math.pow(1 - dist / mR, 1.4) * 0.44;
         }
-
-        // Cratères
         for (const [cLon, cLat, cR, depth] of CRATERS) {
-          const dLon = Math.sin(lon - cLon);
-          const dLat = dy - cLat;
+          const dLon = Math.sin(lon - cLon), dLat = dy - cLat;
           const dist = Math.sqrt(dLon * dLon + dLat * dLat);
           if (dist < cR * 1.35) {
             const t0 = dist / cR;
-            if (t0 < 0.65) {
-              lum *= 0.48 + t0 * depth;          // fond sombre
-            } else if (t0 < 1.0) {
-              const rimT = (t0 - 0.65) / 0.35;
-              lum += (1 - lum) * (1 - rimT) * 0.32; // rebord clair
-            }
+            if      (t0 < 0.65) lum *= 0.48 + t0 * depth;
+            else if (t0 < 1.0)  lum += (1 - lum) * (1 - (t0 - 0.65) / 0.35) * 0.32;
           }
         }
-
-        // Rim subtle (exosphère quasi nulle)
         const rim = Math.pow(1 - nz, 5) * 0.07;
-        const v = Math.min(1, lum * lam + rim);
-
-        buf[base]     = v * 245;          // légèrement chaud
-        buf[base + 1] = v * 245;
-        buf[base + 2] = v * 255;          // légèrement froid/bleu
-        buf[base + 3] = 255;
+        const v   = Math.min(1, lum * lam + rim);
+        buf[base] = v * 245; buf[base+1] = v * 245; buf[base+2] = v * 255; buf[base+3] = 255;
       }
     }
-    return buf;
+    const off = document.createElement("canvas");
+    off.width = diam; off.height = diam;
+    off.getContext("2d").putImageData(new ImageData(buf, diam, diam), 0, 0);
+    return off;
   }
 
   return {
+    // Appeler une fois au démarrage. rR = rayon de rendu (120 recommandé).
+    prerender(rR) {
+      if (_started) return;
+      _started = true;
+      const arr = new Array(FRAME_COUNT);
+      let i = 0;
+      const step = () => {
+        if (i >= FRAME_COUNT) { _frames = arr; return; }
+        arr[i] = renderFrame(rR, (i / FRAME_COUNT) * Math.PI * 2);
+        _loaded = (i + 1) / FRAME_COUNT;
+        i++;
+        setTimeout(step, 0);   // yield → thread principal reste réactif
+      };
+      setTimeout(step, 0);
+    },
+
+    isReady()   { return _frames !== null; },
+    progress()  { return _loaded; },
+
+    // Pure drawImage : zéro calcul, 60 fps garantis une fois prêt.
     drawSphere(ctx, cx, cy, R, rot) {
-      const rR = Math.min(R, 320);
-      const key = `${rR}:${Math.round(rot * 10)}`;  // recalcule tous les ~6°
-      let entry = cache.get(key);
-      if (!entry) {
-        const buf = renderR(rR, rot);
-        const id  = new ImageData(new Uint8ClampedArray(buf), rR * 2, rR * 2);
-        const off = document.createElement("canvas");
-        off.width = rR * 2; off.height = rR * 2;
-        off.getContext("2d").putImageData(id, 0, 0);
-        entry = off;
-        if (cache.size > 64) cache.delete(cache.keys().next().value);
-        cache.set(key, entry);
-      }
-      ctx.drawImage(entry, cx - R, cy - R, R * 2, R * 2);
+      if (!_frames) return false;
+      const norm = ((rot % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+      const idx  = Math.floor((norm / (Math.PI * 2)) * FRAME_COUNT) % FRAME_COUNT;
+      ctx.drawImage(_frames[idx], cx - R, cy - R, R * 2, R * 2);
+      return true;
     }
   };
 })();
@@ -536,6 +526,9 @@ function initConsoleEarth() {
   resize();
   window.addEventListener("resize", resize);
 
+  // Lance le pre-render async (rR=120 → ~1 sec non-bloquante, puis 60 fps purs)
+  MoonRenderer.prerender(120);
+
   const stars = Array.from({length: 80}, () => ({
     x: Math.random(), y: Math.random(),
     r: Math.random() * 1.3 + 0.3,
@@ -546,17 +539,15 @@ function initConsoleEarth() {
   function frame() {
     ctx.clearRect(0, 0, W, H);
 
-    // Étoiles scintillantes
+    // Étoiles
     stars.forEach(s => {
       ctx.globalAlpha = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(t * 0.025 + s.tw));
       ctx.fillStyle = "#dde8ff";
-      ctx.beginPath();
-      ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2); ctx.fill();
     });
     ctx.globalAlpha = 1;
 
-    // Halo argenté (pas d'atmosphère sur la Lune — très subtil)
+    // Halo argenté
     const halo = ctx.createRadialGradient(cx, cy, R * 0.97, cx, cy, R * 1.45);
     halo.addColorStop(0,   "rgba(210,220,255,0.28)");
     halo.addColorStop(0.4, "rgba(180,195,255,0.10)");
@@ -564,16 +555,37 @@ function initConsoleEarth() {
     ctx.fillStyle = halo;
     ctx.beginPath(); ctx.arc(cx, cy, R * 1.45, 0, Math.PI * 2); ctx.fill();
 
-    // Lune procédurale (MoonRenderer)
-    MoonRenderer.drawSphere(ctx, cx, cy, R, t * 0.003);
+    if (MoonRenderer.isReady()) {
+      // 60 fps purs — juste drawImage, zéro calcul
+      MoonRenderer.drawSphere(ctx, cx, cy, R, t * 0.003);
+    } else {
+      // Placeholder pendant le pre-render (~1 sec)
+      const prog = MoonRenderer.progress();
+      const g = ctx.createRadialGradient(cx - R * 0.26, cy - R * 0.22, R * 0.06, cx, cy, R);
+      g.addColorStop(0,   "#bdc8d8");
+      g.addColorStop(0.45,"#6a7585");
+      g.addColorStop(1,   "#252c38");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+      // Arc de progression discret
+      if (prog > 0) {
+        ctx.strokeStyle = "rgba(200,215,255,0.38)";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 4]);
+        ctx.beginPath();
+        ctx.arc(cx, cy, R + 9, -Math.PI / 2, -Math.PI / 2 + prog * Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
 
-    // Rim argenté
+    // Rim argenté (screen blend)
     ctx.save();
     ctx.globalCompositeOperation = "screen";
     const rim = ctx.createRadialGradient(cx, cy, R * 0.93, cx, cy, R * 1.05);
-    rim.addColorStop(0,   "rgba(220,230,255,0)");
-    rim.addColorStop(0.55,"rgba(220,230,255,0.32)");
-    rim.addColorStop(1,   "rgba(220,230,255,0)");
+    rim.addColorStop(0,    "rgba(220,230,255,0)");
+    rim.addColorStop(0.55, "rgba(220,230,255,0.32)");
+    rim.addColorStop(1,    "rgba(220,230,255,0)");
     ctx.fillStyle = rim;
     ctx.beginPath(); ctx.arc(cx, cy, R * 1.05, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
