@@ -1435,6 +1435,57 @@ function initSpaceCanvas() {
   frame();
 }
 
+let shootingStarsTimer = null;
+function initShootingStars() {
+  const stars = $$(".shooting-star");
+  if (!stars.length) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  const randomFrom = (min, max) => min + Math.random() * (max - min);
+  const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+
+  const spawn = () => {
+    const idle = stars.filter((s) => !s.classList.contains("is-active"));
+    const star = idle.length ? pick(idle) : pick(stars);
+    if (!star) return;
+
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const sx = randomFrom(0, W * 0.82);
+    const sy = randomFrom(0, H * 0.56);
+    const dx = randomFrom(150, 380);
+    const dy = randomFrom(95, 245);
+    const dur = randomFrom(700, 1600);
+    const trail = randomFrom(64, 138);
+    const opacity = randomFrom(0.56, 0.9);
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+    star.style.setProperty("--sx", `${sx.toFixed(1)}px`);
+    star.style.setProperty("--sy", `${sy.toFixed(1)}px`);
+    star.style.setProperty("--dx", `${dx.toFixed(1)}px`);
+    star.style.setProperty("--dy", `${dy.toFixed(1)}px`);
+    star.style.setProperty("--ang", `${angle.toFixed(1)}deg`);
+    star.style.setProperty("--trail", `${trail.toFixed(1)}px`);
+    star.style.setProperty("--star-opacity", opacity.toFixed(2));
+    star.style.setProperty("--star-dur", `${dur.toFixed(0)}ms`);
+
+    star.classList.remove("is-active");
+    void star.offsetWidth;
+    star.classList.add("is-active");
+
+    const nextDelay = randomFrom(1100, 3600);
+    shootingStarsTimer = window.setTimeout(spawn, nextDelay);
+  };
+
+  stars.forEach((star) => {
+    star.addEventListener("animationend", () => {
+      star.classList.remove("is-active");
+    });
+  });
+
+  spawn();
+}
+
 let earthIconCounter = 0;
 function progressEarthIcon() {
   earthIconCounter += 1;
@@ -1800,6 +1851,7 @@ function boot() {
   wireKeyboard();
   wireUpload();
   initSpaceCanvas();
+  initShootingStars();
   initConsoleEarth();
   initIntroSat();
 
