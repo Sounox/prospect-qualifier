@@ -287,7 +287,7 @@ a { color: inherit; }
 ───────────────────────────────────────────────────── */
 .screen-intro {
   position: relative;
-  padding: 16px 22px 18px;
+  padding: 18px 22px;
   width: 100%;
   align-items: center; justify-content: center;
   overflow: hidden;
@@ -434,7 +434,7 @@ a { color: inherit; }
   color: #fff;
   margin-bottom: 0;
   text-wrap: balance;
-  max-width: 15.8ch;
+  max-width: 16ch;
   text-shadow: 0 2px 40px rgba(3,7,20,0.8);
 }
 .intro-title .grad {
@@ -446,7 +446,7 @@ a { color: inherit; }
   width: 100%;
   max-width: 860px;
   margin: 0 auto 12px;
-  padding: 20px 24px 18px;
+  padding: 20px 24px;
   border-radius: 16px;
   border: 1px solid rgba(161, 210, 255, 0.26);
   display: grid;
@@ -511,7 +511,7 @@ a { color: inherit; }
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 10px 11px 11px;
+  padding: 11px;
   background: rgba(5,11,30,0.78);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -590,7 +590,7 @@ a { color: inherit; }
 
 /* Ignition CTA — special variant */
 .btn-ignite {
-  padding: 15px 24px 15px 18px;
+  padding: 15px 22px;
   font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -971,7 +971,7 @@ a { color: inherit; }
 /* ─── Progress bar (HUD variants) ─── */
 .progress-wrap {
   margin-bottom: 16px;
-  padding: 15px 18px 14px;
+  padding: 15px 18px;
   border-radius: var(--radius-lg);
   background: linear-gradient(150deg, rgba(13,24,52,0.74), rgba(6,12,30,0.78));
   backdrop-filter: blur(16px);
@@ -2106,11 +2106,11 @@ a { color: inherit; }
 @media (max-height: 860px) and (min-width: 721px) {
   .screen-intro { padding-top: 10px; padding-bottom: 12px; }
   .intro-eyebrow { margin-bottom: 7px; }
-  .intro-message-glass { max-width: 760px; margin-bottom: 8px; padding: 13px 16px 12px; }
+  .intro-message-glass { max-width: 760px; margin-bottom: 8px; padding: 13px 16px; }
   .intro-title { font-size: clamp(30px, 3.8vw, 44px); }
   .intro-sub { font-size: 14.2px; line-height: 1.42; max-width: 56ch; }
   .intro-cta-row { margin-bottom: 6px; gap: 6px; }
-  .btn-ignite { font-size: 11.5px; padding: 12px 20px 12px 15px; }
+  .btn-ignite { font-size: 11.5px; padding: 12px 18px; }
   .intro-bullets { gap: 6px; }
   .intro-bullets li { padding: 8px 9px; min-height: 80px; }
   .intro-bullet-body strong { font-size: 12px; }
@@ -2120,7 +2120,7 @@ a { color: inherit; }
   .header-telemetry { display: none; }
 }
 @media (max-width: 720px) {
-  .screen-intro { padding: 16px 12px 18px; }
+  .screen-intro { padding: 18px 12px; }
   .screen-form { padding: 8px 10px 22px; }
   .header-inner { padding: 10px 16px; }
   .header-pill { display: none; }
@@ -2131,7 +2131,7 @@ a { color: inherit; }
   .intro-message-glass {
     max-width: 94%;
     margin-bottom: 8px;
-    padding: 14px 13px 13px;
+    padding: 14px 13px;
     border-radius: 14px;
     background:
       linear-gradient(150deg, rgba(255,255,255,0.1), rgba(255,255,255,0.03) 52%, rgba(3,10,24,0.22)),
@@ -2172,7 +2172,7 @@ a { color: inherit; }
   }
   .intro-bullets li {
     min-width: min(84vw, 300px);
-    padding: 9px 11px 10px;
+    padding: 10px 11px;
     min-height: 82px;
     scroll-snap-align: start;
   }
@@ -2283,8 +2283,7 @@ a { color: inherit; }
   }
   .step-sub { font-size: 13px; line-height: 1.4; }
 
-  .choices { grid-template-columns: 1fr; }
-  .choices { gap: 7px; }
+  .choices { grid-template-columns: 1fr; gap: 7px; }
   .choice { padding: 9px 10px; gap: 9px; }
   .choice-icon { width: 24px; height: 24px; font-size: 13px; }
   .choice-label { font-size: 13.6px; line-height: 1.3; }
