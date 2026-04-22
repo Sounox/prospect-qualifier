@@ -45,13 +45,16 @@
 
   <!-- ── SCREEN 1 · INTRO ────────────────────────── -->
   <section class="screen screen-intro is-active" data-screen="intro">
+
+    <!-- Terre photoréaliste en fond de l'écran intro -->
+    <div class="intro-earth-bg" aria-hidden="true">
+      <canvas id="console-earth-canvas"></canvas>
+      <div class="intro-orbit-ring intro-orbit-ring--a"></div>
+      <div class="intro-orbit-ring intro-orbit-ring--b"></div>
+      <div class="intro-orbit-sat"><span></span></div>
+    </div>
+
     <div class="intro-single">
-      <div class="intro-orbit" aria-hidden="true">
-        <canvas id="console-earth-canvas"></canvas>
-        <div class="intro-orbit-ring intro-orbit-ring--a"></div>
-        <div class="intro-orbit-ring intro-orbit-ring--b"></div>
-        <div class="intro-orbit-sat"><span></span></div>
-      </div>
 
       <div class="intro-eyebrow">
         <span class="eyebrow-dot"></span>

@@ -416,7 +416,7 @@ function initConsoleEarth() {
     canvas.width = W * dpr; canvas.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     cx = W / 2; cy = H / 2;
-    R = Math.floor(Math.min(W, H) * 0.42);
+    R = Math.floor(Math.min(W, H) * 0.48);
   }
   resize();
   window.addEventListener("resize", resize);
@@ -544,23 +544,40 @@ function initJourneyLeftCanvas() {
     });
     ctx.globalAlpha = 1;
 
-    // Earth at bottom
-    const earthR = W * 1.2;
+    // Earth at bottom — photoréaliste avec EarthTexture
+    const earthR = Math.floor(W * 1.2);
     const earthCy = H + earthR * 0.72;
-    const eGrad = ctx.createRadialGradient(W * 0.35, H - 40, earthR * 0.05, W * 0.5, earthCy, earthR);
-    eGrad.addColorStop(0, "#5ea6ff");
-    eGrad.addColorStop(0.5, "#2e7af8");
-    eGrad.addColorStop(1, "#0a1e4a");
-    ctx.fillStyle = eGrad;
-    ctx.beginPath(); ctx.arc(W / 2, earthCy, earthR, 0, Math.PI * 2); ctx.fill();
 
-    // Atmosphere glow
-    ctx.strokeStyle = "rgba(120,190,255,0.5)";
-    ctx.lineWidth = 3;
-    ctx.shadowColor = "#5ce3ff";
-    ctx.shadowBlur = 18;
-    ctx.beginPath(); ctx.arc(W / 2, earthCy, earthR, Math.PI, 2 * Math.PI); ctx.stroke();
-    ctx.shadowBlur = 0;
+    // Atmospheric halo AVANT la Terre (derrière)
+    const atmHalo = ctx.createRadialGradient(W * 0.5, earthCy, earthR * 0.92, W * 0.5, earthCy, earthR * 1.15);
+    atmHalo.addColorStop(0, "rgba(92,170,255,0.55)");
+    atmHalo.addColorStop(0.5, "rgba(79,157,255,0.2)");
+    atmHalo.addColorStop(1, "rgba(79,157,255,0)");
+    ctx.fillStyle = atmHalo;
+    ctx.beginPath(); ctx.arc(W / 2, earthCy, earthR * 1.15, 0, Math.PI * 2); ctx.fill();
+
+    // Terre photoréaliste (texture NASA raycasting)
+    const drewEarth = EarthTexture.drawSphere(ctx, W / 2, earthCy, earthR, t * 0.0003, 0.32);
+    if (!drewEarth) {
+      // Fallback gradient si texture pas encore chargée
+      const eGrad = ctx.createRadialGradient(W * 0.35, H - 40, earthR * 0.05, W * 0.5, earthCy, earthR);
+      eGrad.addColorStop(0, "#5ea6ff");
+      eGrad.addColorStop(0.5, "#2e7af8");
+      eGrad.addColorStop(1, "#0a1e4a");
+      ctx.fillStyle = eGrad;
+      ctx.beginPath(); ctx.arc(W / 2, earthCy, earthR, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Rim lumineux (atmosphère)
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    const rimGrad = ctx.createRadialGradient(W/2, earthCy, earthR * 0.96, W/2, earthCy, earthR * 1.04);
+    rimGrad.addColorStop(0, "rgba(140,200,255,0)");
+    rimGrad.addColorStop(0.5, "rgba(140,200,255,0.3)");
+    rimGrad.addColorStop(1, "rgba(140,200,255,0)");
+    ctx.fillStyle = rimGrad;
+    ctx.beginPath(); ctx.arc(W / 2, earthCy, earthR * 1.04, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
 
     // Rocket — ascends as ratio increases
     // start near bottom (y ~ H - 80), end near top (y ~ 60)
