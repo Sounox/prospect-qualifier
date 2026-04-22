@@ -1442,24 +1442,33 @@ function progressEarthIcon() {
   return `
     <svg class="progress-icon progress-icon-earth" viewBox="0 0 36 36" aria-hidden="true">
       <defs>
-        <clipPath id="${id}-clip">
-          <circle cx="18" cy="18" r="13.6"></circle>
-        </clipPath>
-        <radialGradient id="${id}-shade" cx="34%" cy="28%" r="72%">
-          <stop offset="0%" stop-color="rgba(255,255,255,0.22)"></stop>
-          <stop offset="48%" stop-color="rgba(255,255,255,0)"></stop>
-          <stop offset="76%" stop-color="rgba(4,11,30,0.22)"></stop>
-          <stop offset="100%" stop-color="rgba(1,5,16,0.76)"></stop>
+        <radialGradient id="${id}-ocean" cx="34%" cy="28%" r="74%">
+          <stop offset="0%" stop-color="#56bcff"></stop>
+          <stop offset="52%" stop-color="#2574f0"></stop>
+          <stop offset="100%" stop-color="#0a1f4f"></stop>
         </radialGradient>
+        <linearGradient id="${id}-land" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#6fdc7b"></stop>
+          <stop offset="100%" stop-color="#319a54"></stop>
+        </linearGradient>
+        <radialGradient id="${id}-shade" cx="70%" cy="72%" r="68%">
+          <stop offset="0%" stop-color="rgba(5,14,36,0)"></stop>
+          <stop offset="100%" stop-color="rgba(3,10,25,0.62)"></stop>
+        </radialGradient>
+        <clipPath id="${id}-clip"><circle cx="18" cy="18" r="13.5"></circle></clipPath>
       </defs>
-      <circle cx="18" cy="18" r="13.8" fill="#061735"></circle>
+      <circle cx="18" cy="18" r="13.8" fill="url(#${id}-ocean)"></circle>
       <g clip-path="url(#${id}-clip)">
-        <image href="${EARTH_DAY_TEXTURE_URL}" x="-10" y="4.5" width="56" height="28" preserveAspectRatio="xMidYMid slice"></image>
-        <image href="${EARTH_NIGHT_TEXTURE_URL}" x="-10" y="4.5" width="56" height="28" preserveAspectRatio="xMidYMid slice" opacity="0.32"></image>
-        <image href="${EARTH_CLOUDS_TEXTURE_URL}" x="-10" y="4.5" width="56" height="28" preserveAspectRatio="xMidYMid slice" opacity="0.25"></image>
-        <rect x="4.2" y="4.2" width="27.6" height="27.6" fill="url(#${id}-shade)"></rect>
+        <path d="M8.6 12.8c1.3-2.1 3.6-3.5 6.3-3.8 1.4-.1 2.5.6 3.2 1.5.5.6 1.2 1 2 1.1 1.9.3 3.6 1.5 4.3 3.3.4 1.2.1 2.2-.8 3.1-1 1-2.4 1.2-3.8 1-1.1-.1-2.2.1-3.1.8-1.6 1.3-4 1.5-5.8.4-1.3-.8-2.4-2-3.1-3.5-.7-1.3-.5-2.7.8-3.9z" fill="url(#${id}-land)" opacity="0.92"></path>
+        <path d="M20.8 20.4c.8-.8 1.8-1.3 2.9-1.3 1.8 0 3.4 1.1 4.1 2.8.6 1.5.2 2.8-.9 3.9-1.4 1.3-3.7 1.5-5.3.4-1.3-.9-2.2-2.2-2.6-3.8-.2-.8.1-1.5.8-2z" fill="#3ca765" opacity="0.85"></path>
+        <path d="M8.8 16.1c2 .1 4 .2 5.9.4 1 .1 2 .5 2.8 1.2" stroke="rgba(234,251,255,0.56)" stroke-width="0.8" stroke-linecap="round"></path>
+        <path d="M14.7 10.5c1.6-.4 3.2-.3 4.8.2" stroke="rgba(234,251,255,0.52)" stroke-width="0.7" stroke-linecap="round"></path>
+        <ellipse cx="15.5" cy="13.4" rx="5.2" ry="1.5" fill="rgba(241,249,255,0.28)"></ellipse>
+        <ellipse cx="22.4" cy="16.8" rx="4.7" ry="1.3" fill="rgba(241,249,255,0.2)"></ellipse>
+        <rect x="4" y="4" width="28" height="28" fill="url(#${id}-shade)"></rect>
       </g>
-      <circle cx="18" cy="18" r="13.8" fill="none" stroke="rgba(150,210,255,0.85)" stroke-width="1"></circle>
+      <circle cx="18" cy="18" r="13.8" fill="none" stroke="rgba(156,215,255,0.88)" stroke-width="1"></circle>
+      <circle cx="18" cy="18" r="15.1" fill="none" stroke="rgba(102,188,255,0.34)" stroke-width="0.8"></circle>
     </svg>
   `;
 }
@@ -1471,21 +1480,26 @@ function progressSatelliteIcon() {
   return `
     <svg class="progress-icon progress-icon-sat" viewBox="0 0 42 42" aria-hidden="true">
       <defs>
-        <clipPath id="${id}-clip">
-          <circle cx="21" cy="21" r="16.2"></circle>
-        </clipPath>
-        <radialGradient id="${id}-gloss" cx="34%" cy="26%" r="76%">
-          <stop offset="0%" stop-color="rgba(255,255,255,0.42)"></stop>
-          <stop offset="42%" stop-color="rgba(255,255,255,0.04)"></stop>
-          <stop offset="100%" stop-color="rgba(1,8,22,0.62)"></stop>
-        </radialGradient>
+        <linearGradient id="${id}-panel" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#7fd3ff"></stop>
+          <stop offset="100%" stop-color="#2568c8"></stop>
+        </linearGradient>
+        <linearGradient id="${id}-body" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#eef6ff"></stop>
+          <stop offset="100%" stop-color="#9bbad7"></stop>
+        </linearGradient>
       </defs>
-      <circle cx="21" cy="21" r="20" fill="rgba(7,18,44,0.78)"></circle>
-      <g clip-path="url(#${id}-clip)">
-        <image href="${DECOR_SATELLITE_IMAGE_URL}" x="0.8" y="2.2" width="40.4" height="37.6" preserveAspectRatio="xMidYMid slice"></image>
-        <rect x="4.8" y="4.8" width="32.4" height="32.4" fill="url(#${id}-gloss)"></rect>
+      <circle cx="21" cy="21" r="20" fill="rgba(7,18,44,0.82)"></circle>
+      <g transform="rotate(-13 21 21)">
+        <rect x="5.2" y="16.1" width="11.2" height="9.8" rx="1.5" fill="url(#${id}-panel)"></rect>
+        <rect x="25.6" y="16.1" width="11.2" height="9.8" rx="1.5" fill="url(#${id}-panel)"></rect>
+        <path d="M10.8 16.5v9m3.2-9v9m14.2-9v9m3.2-9v9" stroke="rgba(224,245,255,0.32)" stroke-width="0.7"></path>
+        <rect x="16.4" y="14.9" width="9.4" height="12.2" rx="2.3" fill="url(#${id}-body)"></rect>
+        <circle cx="21.1" cy="20.7" r="2.15" fill="#1f6dde" stroke="rgba(233,247,255,0.88)" stroke-width="0.7"></circle>
+        <path d="M20.8 27.4l-4.1 3.1" stroke="#b8d9f8" stroke-width="1" stroke-linecap="round"></path>
+        <circle cx="16.2" cy="30.8" r="2.5" fill="none" stroke="rgba(179,226,255,0.68)" stroke-width="1"></circle>
       </g>
-      <circle cx="21" cy="21" r="16.2" fill="none" stroke="rgba(162,216,255,0.6)" stroke-width="0.65"></circle>
+      <circle cx="21" cy="21" r="16.2" fill="none" stroke="rgba(162,216,255,0.66)" stroke-width="0.7"></circle>
       <circle cx="21" cy="21" r="18.5" fill="none" stroke="rgba(112,188,255,0.42)" stroke-width="0.85"></circle>
       <circle cx="21" cy="21" r="20" fill="none" stroke="rgba(165,214,255,0.5)" stroke-width="1"></circle>
     </svg>
@@ -1497,24 +1511,27 @@ function progressRocketIcon() {
   rocketIconCounter += 1;
   const id = `rocket-icon-${rocketIconCounter}`;
   return `
-    <svg class="progress-icon progress-icon-rocket" viewBox="0 0 34 34" aria-hidden="true">
+    <svg class="progress-icon progress-icon-rocket" viewBox="0 0 52 24" aria-hidden="true">
       <defs>
-        <clipPath id="${id}-clip">
-          <circle cx="17" cy="17" r="12.8"></circle>
-        </clipPath>
-        <linearGradient id="${id}-shade" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="rgba(255,255,255,0.26)"></stop>
-          <stop offset="52%" stop-color="rgba(255,255,255,0.02)"></stop>
-          <stop offset="100%" stop-color="rgba(2,10,24,0.58)"></stop>
+        <linearGradient id="${id}-shell" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#f8fcff"></stop>
+          <stop offset="100%" stop-color="#b9d3ec"></stop>
+        </linearGradient>
+        <linearGradient id="${id}-accent" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#4ca8ff"></stop>
+          <stop offset="100%" stop-color="#2672f0"></stop>
         </linearGradient>
       </defs>
-      <circle cx="17" cy="17" r="16" fill="rgba(7,20,48,0.84)"></circle>
-      <g clip-path="url(#${id}-clip)">
-        <image href="${DECOR_ROCKET_IMAGE_URL}" x="3.6" y="3.6" width="26.8" height="26.8" preserveAspectRatio="xMidYMid slice"></image>
-        <rect x="4.2" y="4.2" width="25.6" height="25.6" fill="url(#${id}-shade)"></rect>
+      <g transform="translate(1 1)">
+        <path d="M3.5 12l9.3-7.4h19.4c6.2 0 11.5 3.2 14.3 7.4-2.8 4.3-8.1 7.4-14.3 7.4H12.8z" fill="url(#${id}-shell)" stroke="rgba(169,213,248,0.82)" stroke-width="0.9"></path>
+        <path d="M33.8 6.2c3.4.6 6.4 2.6 8 5.8-1.6 3.2-4.6 5.2-8 5.8 2-.9 3.8-2.8 4.6-5.8-.8-2.9-2.5-4.9-4.6-5.8z" fill="#9ab9d8" opacity="0.72"></path>
+        <path d="M14.8 5.8h14.2v2.9H14.8zm0 9.5h12.6v2.9H14.8z" fill="url(#${id}-accent)" opacity="0.92"></path>
+        <circle cx="24.2" cy="12" r="3" fill="#1f73f0" stroke="rgba(229,247,255,0.94)" stroke-width="0.8"></circle>
+        <path d="M9.2 9.2L5.7 6.7 7.2 11.1z" fill="#5f90d0"></path>
+        <path d="M9.2 14.8L5.7 17.3 7.2 12.9z" fill="#5f90d0"></path>
+        <rect x="2.1" y="10.5" width="3.2" height="3" rx="1" fill="#5f8dc7"></rect>
       </g>
-      <circle cx="17" cy="17" r="12.8" fill="none" stroke="rgba(180,226,255,0.56)" stroke-width="0.62"></circle>
-      <circle cx="17" cy="17" r="16" fill="none" stroke="rgba(150,212,255,0.42)" stroke-width="0.9"></circle>
+      <rect x="0.5" y="0.5" width="51" height="23" rx="11.5" fill="none" stroke="rgba(129,196,255,0.28)" stroke-width="0.7"></rect>
     </svg>
   `;
 }
