@@ -3,25 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Répondez à quelques questions pour recevoir une première maquette personnalisée de votre futur site web.">
-  <title>Demande de maquette — astr.studio</title>
-
-  <!-- Fonts -->
+  <title>astr.studio · Demande de maquette</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="https://astr.studio/wp-content/uploads/2025/10/cropped-astr-favicon-32x32.png">
-
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
+<!-- Background stage -->
 <div class="space-stage" aria-hidden="true">
-  <div class="space-nebula nebula-a"></div>
-  <div class="space-nebula nebula-b"></div>
-  <div class="space-nebula nebula-c"></div>
+  <div class="nebula nebula-a"></div>
+  <div class="nebula nebula-b"></div>
+  <div class="nebula nebula-c"></div>
   <div class="space-grid"></div>
   <div class="space-scanline"></div>
   <canvas class="space-canvas" id="space-canvas"></canvas>
@@ -29,1011 +23,561 @@
 
 <div id="app">
 
-  <!-- ────────────────────────────────────────────────
-       HEADER (persistant)
-  ──────────────────────────────────────────────── -->
-  <header class="site-header" id="site-header">
+  <!-- ── HEADER ──────────────────────────────────── -->
+  <header class="site-header">
     <div class="header-inner">
-      <a href="https://astr.studio" target="_blank" rel="noopener noreferrer" class="logo-link">
+      <a class="logo" href="https://astr.studio" target="_blank" rel="noopener noreferrer">
         <img
           src="https://astr.studio/wp-content/uploads/2025/08/astr-logo-bg-white.svg"
           alt="astr.studio"
           class="logo-img"
-          width="90"
-          height="28"
+          width="96"
+          height="30"
         >
       </a>
       <span class="header-pill">Questionnaire de qualification</span>
+      <div class="header-telemetry">
+        <span>SESSION <strong id="header-t">ASTR-01</strong></span>
+        <span>STATUT <strong style="color:#a6ff6b">EN LIGNE</strong></span>
+      </div>
     </div>
   </header>
 
-  <!-- ────────────────────────────────────────────────
-       ÉCRAN 1 — INTRODUCTION
-  ──────────────────────────────────────────────── -->
-  <section id="screen-intro" class="screen screen-intro is-active" aria-label="Introduction">
-    <div class="intro-layout">
+  <!-- ── SCREEN 1 · INTRO ────────────────────────── -->
+  <section class="screen screen-intro is-active" data-screen="intro">
+    <div class="intro-single">
+      <div class="intro-orbit" aria-hidden="true">
+        <canvas id="console-earth-canvas"></canvas>
+        <div class="intro-orbit-ring intro-orbit-ring--a"></div>
+        <div class="intro-orbit-ring intro-orbit-ring--b"></div>
+        <div class="intro-orbit-sat"><span></span></div>
+      </div>
 
-      <!-- Colonne gauche -->
-      <div class="intro-content">
-        <div class="intro-eyebrow">
-          <span class="eyebrow-dot"></span>
-          Service offert · Sans engagement
-        </div>
+      <div class="intro-eyebrow">
+        <span class="eyebrow-dot"></span>
+        Service offert · sans engagement
+      </div>
 
-        <h1 class="intro-title">
-          Recevez une première maquette claire et personnalisée
-        </h1>
+      <h1 class="intro-title">
+        Recevez une première maquette
+        <span class="grad">personnalisée</span> de votre site.
+      </h1>
 
-        <p class="intro-subtitle">
-          En moins de 2 minutes, ce questionnaire nous permet de comprendre vos besoins
-          et de vous proposer une direction visuelle adaptée à votre activité.
-        </p>
+      <p class="intro-sub">
+        Onze questions, deux minutes. Nous analysons vos réponses et vous renvoyons
+        une direction visuelle calibrée pour votre activité, sous 48 à 72 heures.
+      </p>
 
-        <div class="intro-badges">
-          <div class="intro-badge">
-            <span class="badge-icon">01</span>
-            <span>2 minutes maximum</span>
-          </div>
-          <div class="intro-badge">
-            <span class="badge-icon">02</span>
-            <span>Maquette personnalisée</span>
-          </div>
-          <div class="intro-badge">
-            <span class="badge-icon">03</span>
-            <span>Données confidentielles</span>
-          </div>
-        </div>
-
-        <div class="intro-mission-grid">
-          <article class="mission-card">
-            <p class="mission-label">Impact commercial</p>
-            <p class="mission-value">+148%</p>
-            <div class="mission-bar"><span style="--bar:84%"></span></div>
-          </article>
-          <article class="mission-card">
-            <p class="mission-label">Parcours guidé</p>
-            <p class="mission-value">11 étapes</p>
-            <div class="mission-bar"><span style="--bar:91%"></span></div>
-          </article>
-          <article class="mission-card mission-card-wide">
-            <p class="mission-label">Présentation premium</p>
-            <div class="mission-video">
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <p class="mission-note">Habillage visuel soigné, calibré mobile + desktop</p>
-          </article>
-        </div>
-
-        <button class="btn btn-primary btn-cta" id="btn-start">
-          Commencer
-          <span class="btn-icon" aria-hidden="true">→</span>
+      <div class="intro-cta-row">
+        <button class="btn btn-ignite" id="btn-start">
+          Démarrer le questionnaire
+          <span class="btn-arrow">→</span>
         </button>
-
-        <p class="intro-note">Aucune carte bancaire. Aucun engagement.</p>
+        <div class="intro-trust">
+          <span>⏱ ~2 min</span>
+          <span>·</span>
+          <span>11 questions</span>
+          <span>·</span>
+          <span>Sans carte bancaire</span>
+        </div>
       </div>
 
-      <!-- Colonne droite — illustration décorative -->
-      <div class="intro-visual" aria-hidden="true">
-        <div class="visual-browser">
-          <div class="browser-bar">
-            <span class="browser-dot"></span>
-            <span class="browser-dot"></span>
-            <span class="browser-dot"></span>
-          </div>
-          <div class="browser-body">
-            <div class="browser-hero"></div>
-            <div class="browser-lines">
-              <div class="browser-line w-70"></div>
-              <div class="browser-line w-50"></div>
-            </div>
-            <div class="browser-cards">
-              <div class="browser-card"></div>
-              <div class="browser-card"></div>
-              <div class="browser-card"></div>
-            </div>
-          </div>
-        </div>
-        <div class="visual-badge-sent">
-          <span>●</span> Parcours optimisé
-        </div>
-        <div class="orbit-hud">
-          <p class="orbit-hud-title">Vue Projet</p>
-          <p class="orbit-hud-line">Lecture: <strong>Clair</strong></p>
-          <p class="orbit-hud-line">Support: <strong>Mobile + Desktop</strong></p>
-          <p class="orbit-hud-line">Navigation: <strong>Fluide</strong></p>
-        </div>
-        <span class="visual-orbit orbit-1"></span>
-        <span class="visual-orbit orbit-2"></span>
-        <span class="launch-pulse"></span>
-      </div>
-
+      <ul class="intro-bullets">
+        <li>
+          <span class="intro-bullet-num">01</span>
+          <span class="intro-bullet-body">
+            <strong>Vous répondez</strong>
+            <span>Contexte, objectifs, budget, délais — l'essentiel.</span>
+          </span>
+        </li>
+        <li>
+          <span class="intro-bullet-num">02</span>
+          <span class="intro-bullet-body">
+            <strong>Nous analysons</strong>
+            <span>Nos designers étudient votre marché et votre positionnement.</span>
+          </span>
+        </li>
+        <li>
+          <span class="intro-bullet-num">03</span>
+          <span class="intro-bullet-body">
+            <strong>Vous recevez</strong>
+            <span>Une maquette de page d'accueil, claire et personnalisée.</span>
+          </span>
+        </li>
+      </ul>
     </div>
   </section>
 
-  <!-- ────────────────────────────────────────────────
-       ÉCRAN 2 — FORMULAIRE MULTI-ÉTAPES
-  ──────────────────────────────────────────────── -->
-  <section id="screen-form" class="screen screen-form" aria-label="Questionnaire" hidden>
+  <!-- ── SCREEN 2 · FORM ─────────────────────────── -->
+  <section class="screen screen-form" data-screen="form">
+    <div class="form-wrap">
 
-    <!-- Journey side panels (desktop decoration) -->
-    <div class="journey-panel journey-panel--left" id="journey-panel-left" aria-hidden="true">
-      <canvas id="journey-canvas-left"></canvas>
-      <div class="journey-label" id="journey-label-left">Décollage</div>
-    </div>
-    <div class="journey-panel journey-panel--right" id="journey-panel" aria-hidden="true">
-      <canvas id="journey-canvas"></canvas>
-      <div class="journey-label" id="journey-label">En orbite</div>
-    </div>
-
-    <!-- Barre de progression -->
-    <div class="progress-bar-wrapper" id="progress-wrapper">
-      <div class="progress-bar-inner">
-        <p class="progress-kicker">Parcours de qualification - environ 2 minutes</p>
-        <div class="progress-meta">
-          <span class="progress-label">
-            Étape <strong id="step-num">1</strong> sur <strong id="step-total">11</strong>
-          </span>
-          <span class="progress-pct" id="progress-pct">9%</span>
-        </div>
-        <div class="progress-track" role="progressbar" aria-valuenow="9" aria-valuemin="0" aria-valuemax="100" id="progress-track">
-          <span class="progress-point progress-point-start" aria-hidden="true">
-            <span class="progress-point-label">D&eacute;part</span>
-            <svg class="progress-icon progress-icon-earth" viewBox="0 0 24 24" fill="none">
-              <defs>
-                <radialGradient id="earth-core" cx="0.32" cy="0.28" r="0.95">
-                  <stop offset="0" stop-color="#B8DEFF"></stop>
-                  <stop offset="0.52" stop-color="#3886FF"></stop>
-                  <stop offset="1" stop-color="#174CAB"></stop>
-                </radialGradient>
-              </defs>
-              <circle cx="12" cy="12" r="8.9" fill="url(#earth-core)"></circle>
-              <path d="M7 10.4 9.6 8.3l2 .9.3 1.8-1.3 1.2-2 .2-1.2 1.3-1.1-.8z" fill="#8EE2AE"></path>
-              <path d="M13 13.3 15.1 11.8l2.6.9.5 1.9-1.2 1.2-2 .1-1.9-.7z" fill="#7AD89E"></path>
-              <path d="M10 16 11.2 15l1 .2.5.8-.7 1-.8.2-.8-.5z" fill="#92E5B3"></path>
-              <circle cx="12" cy="12" r="8.9" stroke="rgba(233,244,255,.82)" stroke-width="1.2"></circle>
-            </svg>
-          </span>
-          <span class="progress-point progress-point-end" aria-hidden="true">
-            <span class="progress-point-label">Validation</span>
-            <svg class="progress-icon progress-icon-satellite" viewBox="0 0 24 24" fill="none">
-              <defs>
-                <linearGradient id="sat-core" x1="8.6" y1="8.7" x2="15.4" y2="15.4" gradientUnits="userSpaceOnUse">
-                  <stop stop-color="#E8F4FF"></stop>
-                  <stop offset="1" stop-color="#8CBFFF"></stop>
-                </linearGradient>
-              </defs>
-              <circle cx="12" cy="12" r="8.8" stroke="rgba(221,239,255,.56)" stroke-width="1.2"></circle>
-              <rect x="9.1" y="9" width="5.8" height="5.8" rx="1.5" fill="url(#sat-core)"></rect>
-              <rect x="3.4" y="9.5" width="4.8" height="1.9" rx=".65" fill="#3F89FF"></rect>
-              <rect x="3.4" y="12.6" width="4.8" height="1.9" rx=".65" fill="#3F89FF"></rect>
-              <path d="M14.9 10.8h2.7l1.4-1.4" stroke="#DCEFFF" stroke-width="1.15" stroke-linecap="round"></path>
-              <path d="M14.9 13.1h2.7l1.4 1.4" stroke="#DCEFFF" stroke-width="1.15" stroke-linecap="round"></path>
-              <circle cx="12" cy="12" r="1.45" fill="#2A74EA"></circle>
-            </svg>
-          </span>
-          <div class="progress-fill" id="progress-fill"></div>
-          <span class="progress-rocket" id="progress-rocket" aria-hidden="true">
-            <span class="rocket-exhaust" aria-hidden="true">
-              <span class="rocket-flame rocket-flame-outer"></span>
-              <span class="rocket-flame rocket-flame-mid"></span>
-              <span class="rocket-flame rocket-flame-core"></span>
-            </span>
-            <svg class="rocket-svg" viewBox="0 0 108 40" fill="none">
-              <path d="M20 20c0-7 7.4-12.2 21.6-12.2H75.9L93 20 75.9 32.2H41.6C27.4 32.2 20 27 20 20Z" fill="url(#rocket-body-grad)"></path>
-              <path d="M20 20c0-7 7.4-12.2 21.6-12.2H75.9L93 20 75.9 32.2H41.6C27.4 32.2 20 27 20 20Z" stroke="#C4E3FF" stroke-width="1.2"></path>
-              <path d="M28 14.4 14.6 10.7l5.4 9.3z" fill="#9DCAFF"></path>
-              <path d="M28 25.6 14.6 29.3l5.4-9.3z" fill="#9DCAFF"></path>
-              <ellipse cx="58.6" cy="20" rx="6.2" ry="5.8" fill="#2C78EF"></ellipse>
-              <ellipse cx="58.6" cy="20" rx="3" ry="2.8" fill="#C7EAFF"></ellipse>
-              <path d="M93 20h11" stroke="#B8D9FF" stroke-width="1.2" stroke-linecap="round"></path>
-              <defs>
-                <linearGradient id="rocket-body-grad" x1="20" y1="20" x2="93" y2="20" gradientUnits="userSpaceOnUse">
-                  <stop stop-color="#EEF6FF"></stop>
-                  <stop offset=".58" stop-color="#FFFFFF"></stop>
-                  <stop offset="1" stop-color="#A7D0FF"></stop>
-                </linearGradient>
-              </defs>
-            </svg>
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <div class="form-container">
-      <form id="prospect-form" novalidate autocomplete="off">
-
-        <!-- Anti-spam : honeypot invisible -->
-        <div class="hp-field" aria-hidden="true">
-          <label for="website_url">Website</label>
-          <input type="text" id="website_url" name="website_url" tabindex="-1" autocomplete="off">
-        </div>
-        <!-- Timestamp de chargement -->
-        <input type="hidden" name="_load_time" id="_load_time">
-
-        <!-- ─────────────────────────────────────────
-             ÉTAPE 1 — Objectif principal
-        ───────────────────────────────────────── -->
-        <div class="form-step is-active" data-step="1" role="group" aria-labelledby="step1-title">
-          <div class="step-header">
-            <span class="step-num-badge">01</span>
-            <h2 class="step-title" id="step1-title">
-              Quel est votre objectif principal avec ce futur site web&nbsp;?
-            </h2>
+      <!-- LEFT canvas panel -->
+      <aside class="journey-panel journey-panel--left" aria-hidden="true">
+        <canvas id="journey-left-canvas"></canvas>
+        <div class="journey-label">Ascension</div>
+        <div class="journey-telemetry">
+          <div class="journey-telemetry-item">
+            <div class="journey-telemetry-label">Altitude</div>
+            <div class="journey-telemetry-value" id="telemetry-alt">000 KM</div>
           </div>
-
-          <div class="choices-grid">
-            <label class="choice-card">
-              <input type="radio" name="q1_objective" value="Présenter mon entreprise plus professionnellement">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🏢</span>
-              <span class="choice-label">Présenter mon entreprise plus professionnellement</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q1_objective" value="Générer plus de demandes de contact">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">📩</span>
-              <span class="choice-label">Générer plus de demandes de contact</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q1_objective" value="Obtenir plus de rendez-vous">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">📅</span>
-              <span class="choice-label">Obtenir plus de rendez-vous</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q1_objective" value="Vendre mes produits / services en ligne">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🛒</span>
-              <span class="choice-label">Vendre mes produits / services en ligne</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q1_objective" value="Moderniser un site existant">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🔄</span>
-              <span class="choice-label">Moderniser un site existant</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q1_objective" value="Autre" data-triggers="q1-other-wrap">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">✏️</span>
-              <span class="choice-label">Autre</span>
-            </label>
-          </div>
-
-          <div class="conditional-wrap" id="q1-other-wrap" hidden>
-            <label class="field-label" for="q1_objective_other">Précisez votre objectif</label>
-            <input type="text" id="q1_objective_other" name="q1_objective_other" class="field-input" placeholder="Décrivez votre objectif…">
-          </div>
-
-          <div class="step-error" id="err-1" role="alert" hidden>
-            Veuillez sélectionner une réponse pour continuer.
+          <div class="journey-telemetry-item">
+            <div class="journey-telemetry-label">Vélocité</div>
+            <div class="journey-telemetry-value" id="telemetry-vel">7.66 KM/S</div>
           </div>
         </div>
+      </aside>
 
-        <!-- ─────────────────────────────────────────
-             ÉTAPE 2 — Site existant
-        ───────────────────────────────────────── -->
-        <div class="form-step" data-step="2" role="group" aria-labelledby="step2-title" hidden>
-          <div class="step-header">
-            <span class="step-num-badge">02</span>
-            <h2 class="step-title" id="step2-title">
-              Avez-vous déjà un site internet&nbsp;?
-            </h2>
-          </div>
+      <!-- CENTER form -->
+      <div class="form-center">
 
-          <div class="choices-grid">
-            <label class="choice-card">
-              <input type="radio" name="q2_existing_site" value="Oui, et je souhaite le refaire" data-triggers="q2-url-wrap">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🔃</span>
-              <span class="choice-label">Oui, et je souhaite le refaire</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q2_existing_site" value="Oui, mais il n'est plus à jour" data-triggers="q2-url-wrap">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🕐</span>
-              <span class="choice-label">Oui, mais il n'est plus à jour</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q2_existing_site" value="Non, je n'en ai pas encore">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🆕</span>
-              <span class="choice-label">Non, je n'en ai pas encore</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q2_existing_site" value="J'en ai un, mais il ne me convient pas" data-triggers="q2-url-wrap">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">😕</span>
-              <span class="choice-label">J'en ai un, mais il ne me convient pas</span>
-            </label>
-          </div>
-
-          <div class="conditional-wrap" id="q2-url-wrap" hidden>
-            <label class="field-label" for="q2_existing_url">
-              URL de votre site actuel
-              <span class="field-optional">(facultatif)</span>
-            </label>
-            <input type="url" id="q2_existing_url" name="q2_existing_url" class="field-input" placeholder="https://www.monsite.fr">
-          </div>
-
-          <div class="step-error" id="err-2" role="alert" hidden>
-            Veuillez sélectionner une réponse pour continuer.
-          </div>
-        </div>
-
-        <!-- ─────────────────────────────────────────
-             ÉTAPE 3 — Type de site
-        ───────────────────────────────────────── -->
-        <div class="form-step" data-step="3" role="group" aria-labelledby="step3-title" hidden>
-          <div class="step-header">
-            <span class="step-num-badge">03</span>
-            <h2 class="step-title" id="step3-title">
-              Quel type de site vous correspond le mieux&nbsp;?
-            </h2>
-          </div>
-
-          <div class="choices-grid">
-            <label class="choice-card">
-              <input type="radio" name="q3_site_type" value="Site vitrine simple">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🪟</span>
-              <span class="choice-label">Site vitrine simple</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q3_site_type" value="Site vitrine premium">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">💎</span>
-              <span class="choice-label">Site vitrine premium</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q3_site_type" value="Landing page">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🎯</span>
-              <span class="choice-label">Landing page</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q3_site_type" value="Site e-commerce">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🛍️</span>
-              <span class="choice-label">Site e-commerce</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q3_site_type" value="Je ne sais pas encore">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🤔</span>
-              <span class="choice-label">Je ne sais pas encore</span>
-            </label>
-          </div>
-
-          <div class="field-group">
-            <label class="field-label" for="q3_site_type_comment">
-              Commentaire libre
-              <span class="field-optional">(facultatif)</span>
-            </label>
-            <textarea id="q3_site_type_comment" name="q3_site_type_comment" class="field-input field-textarea" rows="3" placeholder="Précisez si besoin…"></textarea>
-          </div>
-
-          <div class="step-error" id="err-3" role="alert" hidden>
-            Veuillez sélectionner une réponse pour continuer.
-          </div>
-        </div>
-
-        <!-- ─────────────────────────────────────────
-             ÉTAPE 4 — Pages indispensables
-        ───────────────────────────────────────── -->
-        <div class="form-step" data-step="4" role="group" aria-labelledby="step4-title" hidden>
-          <div class="step-header">
-            <span class="step-num-badge">04</span>
-            <h2 class="step-title" id="step4-title">
-              Quelles pages vous semblent indispensables&nbsp;?
-            </h2>
-            <p class="step-subtitle">Sélectionnez tout ce qui vous correspond.</p>
-          </div>
-
-          <div class="choices-grid choices-multi">
-            <label class="choice-card">
-              <input type="checkbox" name="q4_pages" value="Accueil">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🏠</span>
-              <span class="choice-label">Accueil</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q4_pages" value="À propos">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">👤</span>
-              <span class="choice-label">À propos</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q4_pages" value="Services / Prestations">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">⚙️</span>
-              <span class="choice-label">Services / Prestations</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q4_pages" value="Réalisations / Portfolio">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🖼️</span>
-              <span class="choice-label">Réalisations / Portfolio</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q4_pages" value="Boutique / Produits">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🛍️</span>
-              <span class="choice-label">Boutique / Produits</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q4_pages" value="Contact">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">✉️</span>
-              <span class="choice-label">Contact</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q4_pages" value="Prise de rendez-vous">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">📆</span>
-              <span class="choice-label">Prise de rendez-vous</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q4_pages" value="Témoignages / Avis clients">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">⭐</span>
-              <span class="choice-label">Témoignages / Avis clients</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q4_pages" value="FAQ">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">❓</span>
-              <span class="choice-label">FAQ</span>
-            </label>
-            <label class="choice-card" data-triggers-checkbox="q4-other-wrap">
-              <input type="checkbox" name="q4_pages" value="Autre" id="q4-other-check">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">✏️</span>
-              <span class="choice-label">Autre</span>
-            </label>
-          </div>
-
-          <div class="conditional-wrap" id="q4-other-wrap" hidden>
-            <label class="field-label" for="q4_pages_other">Précisez la page</label>
-            <input type="text" id="q4_pages_other" name="q4_pages_other" class="field-input" placeholder="Ex : Espace membres, Blog…">
-          </div>
-
-          <div class="step-error" id="err-4" role="alert" hidden>
-            Veuillez sélectionner au moins une page.
-          </div>
-        </div>
-
-        <!-- ─────────────────────────────────────────
-             ÉTAPE 5 — Style visuel
-        ───────────────────────────────────────── -->
-        <div class="form-step" data-step="5" role="group" aria-labelledby="step5-title" hidden>
-          <div class="step-header">
-            <span class="step-num-badge">05</span>
-            <h2 class="step-title" id="step5-title">
-              Quel style visuel vous attire le plus&nbsp;?
-            </h2>
-          </div>
-
-          <div class="choices-grid">
-            <label class="choice-card">
-              <input type="radio" name="q5_style" value="Moderne et épuré">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">✨</span>
-              <span class="choice-label">Moderne et épuré</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q5_style" value="Premium / haut de gamme">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">💎</span>
-              <span class="choice-label">Premium / haut de gamme</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q5_style" value="Chaleureux et humain">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🤝</span>
-              <span class="choice-label">Chaleureux et humain</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q5_style" value="Corporate / rassurant">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🏛️</span>
-              <span class="choice-label">Corporate / rassurant</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q5_style" value="Créatif / original">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🎨</span>
-              <span class="choice-label">Créatif / original</span>
-            </label>
-            <label class="choice-card">
-              <input type="radio" name="q5_style" value="Je vous laisse me proposer">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🙌</span>
-              <span class="choice-label">Je vous laisse me proposer</span>
-            </label>
-          </div>
-
-          <div class="field-group">
-            <label class="field-label" for="q5_style_description">
-              Décrivez l'univers souhaité
-              <span class="field-optional">(facultatif)</span>
-            </label>
-            <textarea id="q5_style_description" name="q5_style_description" class="field-input field-textarea" rows="3" placeholder="Ex : Quelque chose d'élégant, avec beaucoup d'espace, des photos impactantes…"></textarea>
-          </div>
-
-          <div class="step-error" id="err-5" role="alert" hidden>
-            Veuillez sélectionner une réponse pour continuer.
-          </div>
-        </div>
-
-        <!-- ─────────────────────────────────────────
-             ÉTAPE 6 — Couleurs
-        ───────────────────────────────────────── -->
-        <div class="form-step" data-step="6" role="group" aria-labelledby="step6-title" hidden>
-          <div class="step-header">
-            <span class="step-num-badge">06</span>
-            <h2 class="step-title" id="step6-title">
-              Quelles couleurs ou univers correspondent le mieux à votre activité&nbsp;?
-            </h2>
-          </div>
-
-          <div class="choices-grid choices-colors">
-            <label class="choice-card choice-color-card">
-              <input type="radio" name="q6_colors" value="Bleu / confiance / sérieux">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-swatch" style="background:#2574F0" aria-hidden="true"></span>
-              <span class="choice-label">Bleu · confiance · sérieux</span>
-            </label>
-            <label class="choice-card choice-color-card">
-              <input type="radio" name="q6_colors" value="Noir / blanc / premium">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-swatch choice-swatch-bw" aria-hidden="true"></span>
-              <span class="choice-label">Noir / blanc · premium</span>
-            </label>
-            <label class="choice-card choice-color-card">
-              <input type="radio" name="q6_colors" value="Vert / naturel / apaisant">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-swatch" style="background:#22C55E" aria-hidden="true"></span>
-              <span class="choice-label">Vert · naturel · apaisant</span>
-            </label>
-            <label class="choice-card choice-color-card">
-              <input type="radio" name="q6_colors" value="Rouge / impact / dynamisme">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-swatch" style="background:#EF4444" aria-hidden="true"></span>
-              <span class="choice-label">Rouge · impact · dynamisme</span>
-            </label>
-            <label class="choice-card choice-color-card">
-              <input type="radio" name="q6_colors" value="Tons neutres / minimalistes">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-swatch choice-swatch-neutral" aria-hidden="true"></span>
-              <span class="choice-label">Tons neutres · minimalistes</span>
-            </label>
-            <label class="choice-card choice-color-card">
-              <input type="radio" name="q6_colors" value="J'ai déjà une charte graphique">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">📋</span>
-              <span class="choice-label">J'ai déjà une charte graphique</span>
-            </label>
-            <label class="choice-card choice-color-card">
-              <input type="radio" name="q6_colors" value="Je n'ai pas de préférence">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🎲</span>
-              <span class="choice-label">Je n'ai pas de préférence</span>
-            </label>
-          </div>
-
-          <div class="field-group">
-            <label class="field-label" for="q6_colors_details">
-              Précisions
-              <span class="field-optional">(facultatif)</span>
-            </label>
-            <input type="text" id="q6_colors_details" name="q6_colors_details" class="field-input" placeholder="Ex : J'ai un logo bleu nuit avec touches dorées…">
-          </div>
-
-          <div class="step-error" id="err-6" role="alert" hidden>
-            Veuillez sélectionner une réponse pour continuer.
-          </div>
-        </div>
-
-        <!-- ─────────────────────────────────────────
-             ÉTAPE 7 — Priorités
-        ───────────────────────────────────────── -->
-        <div class="form-step" data-step="7" role="group" aria-labelledby="step7-title" hidden>
-          <div class="step-header">
-            <span class="step-num-badge">07</span>
-            <h2 class="step-title" id="step7-title">
-              Qu'attendez-vous en priorité de votre futur site&nbsp;?
-            </h2>
-            <p class="step-subtitle">Sélectionnez tout ce qui vous correspond.</p>
-          </div>
-
-          <div class="choices-grid choices-multi">
-            <label class="choice-card">
-              <input type="checkbox" name="q7_priorities" value="Qu'il inspire confiance">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🛡️</span>
-              <span class="choice-label">Qu'il inspire confiance</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q7_priorities" value="Qu'il fasse plus professionnel">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">💼</span>
-              <span class="choice-label">Qu'il fasse plus professionnel</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q7_priorities" value="Qu'il convertisse davantage">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">📈</span>
-              <span class="choice-label">Qu'il convertisse davantage</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q7_priorities" value="Qu'il soit rapide et simple">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">⚡</span>
-              <span class="choice-label">Qu'il soit rapide et simple</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q7_priorities" value="Qu'il me démarque de mes concurrents">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🏆</span>
-              <span class="choice-label">Qu'il me démarque de mes concurrents</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q7_priorities" value="Qu'il mette mieux en valeur mes offres">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🎯</span>
-              <span class="choice-label">Qu'il mette mieux en valeur mes offres</span>
-            </label>
-            <label class="choice-card" data-triggers-checkbox="q7-other-wrap">
-              <input type="checkbox" name="q7_priorities" value="Autre" id="q7-other-check">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">✏️</span>
-              <span class="choice-label">Autre</span>
-            </label>
-          </div>
-
-          <div class="conditional-wrap" id="q7-other-wrap" hidden>
-            <label class="field-label" for="q7_priorities_other">Précisez</label>
-            <input type="text" id="q7_priorities_other" name="q7_priorities_other" class="field-input" placeholder="Votre priorité…">
-          </div>
-
-          <div class="step-error" id="err-7" role="alert" hidden>
-            Veuillez sélectionner au moins une réponse.
-          </div>
-        </div>
-
-        <!-- ─────────────────────────────────────────
-             ÉTAPE 8 — Éléments + Upload
-        ───────────────────────────────────────── -->
-        <div class="form-step" data-step="8" role="group" aria-labelledby="step8-title" hidden>
-          <div class="step-header">
-            <span class="step-num-badge">08</span>
-            <h2 class="step-title" id="step8-title">
-              Avez-vous déjà des éléments à intégrer&nbsp;?
-            </h2>
-            <p class="step-subtitle">Sélectionnez tout ce que vous possédez déjà.</p>
-          </div>
-
-          <div class="choices-grid choices-multi">
-            <label class="choice-card">
-              <input type="checkbox" name="q8_assets" value="Logo">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🔷</span>
-              <span class="choice-label">Logo</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q8_assets" value="Photos">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">📸</span>
-              <span class="choice-label">Photos</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q8_assets" value="Textes">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">📝</span>
-              <span class="choice-label">Textes</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q8_assets" value="Avis clients">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">⭐</span>
-              <span class="choice-label">Avis clients</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q8_assets" value="Références / réalisations">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🖼️</span>
-              <span class="choice-label">Références / réalisations</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q8_assets" value="Charte graphique">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🎨</span>
-              <span class="choice-label">Charte graphique</span>
-            </label>
-            <label class="choice-card">
-              <input type="checkbox" name="q8_assets" value="Aucune ressource pour le moment">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🆕</span>
-              <span class="choice-label">Aucune ressource pour le moment</span>
-            </label>
-          </div>
-
-          <!-- Zone d'upload -->
-          <div class="upload-zone" id="upload-zone">
-            <div class="upload-zone-inner" id="upload-drop-area">
-              <span class="upload-icon" aria-hidden="true">📁</span>
-              <p class="upload-title">Importez vos fichiers ici</p>
-              <p class="upload-desc">
-                Vous pouvez importer votre logo, vos photos, votre plaquette, votre charte graphique
-                ou tout autre document utile à la conception de votre site.
-              </p>
-              <button type="button" class="btn btn-secondary" id="upload-trigger">
-                Choisir des fichiers
-              </button>
-              <input
-                type="file"
-                id="file-input"
-                name="files"
-                multiple
-                accept=".jpg,.jpeg,.png,.webp,.svg,.pdf,.doc,.docx"
-                aria-label="Sélectionner des fichiers"
-              >
-              <p class="upload-specs">JPG · PNG · WEBP · SVG · PDF · DOC · DOCX &nbsp;·&nbsp; Max 10 Mo par fichier</p>
-            </div>
-
-            <div class="file-list" id="file-list" hidden aria-live="polite"></div>
-          </div>
-
-          <div class="step-error" id="err-8" role="alert" hidden></div>
-        </div>
-
-        <!-- ─────────────────────────────────────────
-             ÉTAPE 9 — Attentes maquette
-        ───────────────────────────────────────── -->
-        <div class="form-step" data-step="9" role="group" aria-labelledby="step9-title" hidden>
-          <div class="step-header">
-            <span class="step-num-badge">09</span>
-            <h2 class="step-title" id="step9-title">
-              Si nous vous préparons une première maquette personnalisée,
-              qu'aimeriez-vous absolument y retrouver&nbsp;?
-            </h2>
-            <p class="step-subtitle">Soyez aussi précis que vous le souhaitez.</p>
-          </div>
-
-          <div class="field-group">
-            <textarea
-              id="q9_expectations"
-              name="q9_expectations"
-              class="field-input field-textarea field-textarea-lg"
-              rows="6"
-              placeholder="Ex : Une page d'accueil impactante, mes meilleurs projets mis en valeur, un bouton de prise de RDV très visible, des témoignages clients en avant…"
-            ></textarea>
-          </div>
-
-          <div class="step-error" id="err-9" role="alert" hidden>
-            Veuillez décrire vos attentes pour que nous puissions préparer la maquette.
-          </div>
-        </div>
-
-        <!-- ─────────────────────────────────────────
-             ÉTAPE 10 — Disponibilité
-        ───────────────────────────────────────── -->
-        <div class="form-step" data-step="10" role="group" aria-labelledby="step10-title" hidden>
-          <div class="step-header">
-            <span class="step-num-badge">10</span>
-            <h2 class="step-title" id="step10-title">
-              Si la maquette vous plaît, seriez-vous ouvert à un échange
-              pour finaliser votre site&nbsp;?
-            </h2>
-          </div>
-
-          <div class="choices-grid choices-2col">
-            <label class="choice-card choice-card-lg">
-              <input type="radio" name="q10_readiness" value="Oui, rapidement">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🚀</span>
-              <span class="choice-label">Oui, rapidement</span>
-              <span class="choice-sublabel">Je suis prêt à avancer</span>
-            </label>
-            <label class="choice-card choice-card-lg">
-              <input type="radio" name="q10_readiness" value="Oui, dans les prochaines semaines">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">📅</span>
-              <span class="choice-label">Oui, dans les prochaines semaines</span>
-              <span class="choice-sublabel">Je prends mon temps</span>
-            </label>
-            <label class="choice-card choice-card-lg">
-              <input type="radio" name="q10_readiness" value="Peut-être selon la proposition">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">🤔</span>
-              <span class="choice-label">Peut-être selon la proposition</span>
-              <span class="choice-sublabel">Ça dépendra de la maquette</span>
-            </label>
-            <label class="choice-card choice-card-lg">
-              <input type="radio" name="q10_readiness" value="Pas dans l'immédiat">
-              <span class="choice-check" aria-hidden="true"></span>
-              <span class="choice-icon" aria-hidden="true">⏳</span>
-              <span class="choice-label">Pas dans l'immédiat</span>
-              <span class="choice-sublabel">Je me projette pour plus tard</span>
-            </label>
-          </div>
-
-          <div class="step-error" id="err-10" role="alert" hidden>
-            Veuillez sélectionner une réponse pour continuer.
-          </div>
-        </div>
-
-        <!-- ─────────────────────────────────────────
-             ÉTAPE 11 — Coordonnées
-        ───────────────────────────────────────── -->
-        <div class="form-step" data-step="11" role="group" aria-labelledby="step11-title" hidden>
-          <div class="step-header">
-            <span class="step-num-badge">11</span>
-            <h2 class="step-title" id="step11-title">Vos coordonnées</h2>
-            <p class="step-subtitle">
-              Pour vous transmettre votre maquette personnalisée, nous avons besoin
-              de quelques informations.
-            </p>
-          </div>
-
-          <div class="fields-grid">
-            <div class="field-group">
-              <label class="field-label" for="company_name">
-                Nom de l'entreprise
-                <span class="field-required" aria-label="obligatoire">*</span>
-              </label>
-              <input
-                type="text"
-                id="company_name"
-                name="company_name"
-                class="field-input"
-                placeholder="Votre entreprise"
-                autocomplete="organization"
-              >
-              <span class="field-error" id="err-company_name" role="alert" hidden></span>
-            </div>
-
-            <div class="field-group">
-              <label class="field-label" for="contact_name">
-                Votre nom
-                <span class="field-required" aria-label="obligatoire">*</span>
-              </label>
-              <input
-                type="text"
-                id="contact_name"
-                name="contact_name"
-                class="field-input"
-                placeholder="Prénom Nom"
-                autocomplete="name"
-              >
-              <span class="field-error" id="err-contact_name" role="alert" hidden></span>
-            </div>
-
-            <div class="field-group field-span-2">
-              <label class="field-label" for="contact_email">
-                Adresse email
-                <span class="field-required" aria-label="obligatoire">*</span>
-              </label>
-              <input
-                type="email"
-                id="contact_email"
-                name="contact_email"
-                class="field-input"
-                placeholder="vous@entreprise.fr"
-                autocomplete="email"
-              >
-              <span class="field-error" id="err-contact_email" role="alert" hidden></span>
-            </div>
-
-            <div class="field-group">
-              <label class="field-label" for="contact_phone">
-                Téléphone
-                <span class="field-optional">(facultatif)</span>
-              </label>
-              <input
-                type="tel"
-                id="contact_phone"
-                name="contact_phone"
-                class="field-input"
-                placeholder="06 00 00 00 00"
-                autocomplete="tel"
-              >
-            </div>
-
-            <div class="field-group">
-              <label class="field-label" for="current_website">
-                Site web actuel
-                <span class="field-optional">(facultatif)</span>
-              </label>
-              <input
-                type="url"
-                id="current_website"
-                name="current_website"
-                class="field-input"
-                placeholder="https://www.monsite.fr"
-                autocomplete="url"
-              >
+        <!-- Progress bar -->
+        <div class="progress-wrap" id="progress-wrap" data-progress="timeline">
+          <div class="progress-header">
+            <span class="progress-kicker">Mission progress · qualification</span>
+            <div class="progress-meta">
+              <span>Étape <strong id="step-num">01</strong> / 11</span>
+              <span class="progress-pct" id="progress-pct">0%</span>
             </div>
           </div>
-
-          <!-- RGPD -->
-          <div class="rgpd-block">
-            <label class="rgpd-label">
-              <input type="checkbox" name="rgpd" id="rgpd" value="1">
-              <span class="rgpd-box" aria-hidden="true"></span>
-              <span class="rgpd-text">
-                J'accepte que mes informations soient utilisées pour être recontacté dans le cadre de ma demande.
-                <span class="field-required" aria-label="obligatoire">*</span>
-              </span>
-            </label>
-            <span class="field-error" id="err-rgpd" role="alert" hidden></span>
+          <div class="progress-track" id="progress-track">
+            <!-- rendered by JS -->
           </div>
-
-          <div class="step-error" id="err-11" role="alert" hidden></div>
         </div>
 
-        <!-- Navigation -->
-        <div class="form-nav" id="form-nav">
-          <button type="button" class="btn btn-back" id="btn-back" hidden>
-            ← Retour
-          </button>
-          <button type="button" class="btn btn-primary" id="btn-next">
-            Suivant
-            <span class="btn-icon" aria-hidden="true">→</span>
-          </button>
-          <button type="submit" class="btn btn-primary btn-submit" id="btn-submit" hidden>
-            <span class="btn-text">Envoyer ma demande</span>
-            <span class="btn-loader" hidden aria-hidden="true">
-              <span class="spinner"></span>
-              Envoi en cours…
-            </span>
-          </button>
-        </div>
+        <form id="prospect-form" novalidate autocomplete="off">
+          <!-- Anti-spam -->
+          <div style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true">
+            <input type="text" name="website_url" id="website_url" tabindex="-1" autocomplete="off">
+          </div>
+          <input type="hidden" name="_load_time" id="_load_time">
 
-      </form>
-    </div>
+          <div class="step-viewport">
+
+            <!-- STEP 1 — Objectif -->
+            <div class="step" data-step="1">
+              <div class="step-head">
+                <span class="step-designator"><span class="step-code">01 · PRE-FLT</span> Diagnostic objectif</span>
+                <h2 class="step-title">Quel est votre objectif principal avec ce futur site&nbsp;?</h2>
+              </div>
+              <div class="choices" data-multi="false">
+                <label class="choice">
+                  <input type="radio" name="q1" value="Présenter mon entreprise plus professionnellement">
+                  <span class="choice-mark"></span>
+                  <span class="choice-icon">🏢</span>
+                  <span class="choice-body"><span class="choice-label">Présenter mon entreprise</span><span class="choice-sub">Image pro, crédibilité</span></span>
+                  <span class="choice-key">1</span>
+                  <span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="q1" value="Générer plus de demandes de contact">
+                  <span class="choice-mark"></span>
+                  <span class="choice-icon">📩</span>
+                  <span class="choice-body"><span class="choice-label">Générer plus de contacts</span><span class="choice-sub">Lead generation</span></span>
+                  <span class="choice-key">2</span>
+                  <span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="q1" value="Obtenir plus de rendez-vous">
+                  <span class="choice-mark"></span>
+                  <span class="choice-icon">📅</span>
+                  <span class="choice-body"><span class="choice-label">Obtenir plus de rendez-vous</span><span class="choice-sub">Prise de RDV</span></span>
+                  <span class="choice-key">3</span>
+                  <span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="q1" value="Vendre mes produits / services en ligne">
+                  <span class="choice-mark"></span>
+                  <span class="choice-icon">🛒</span>
+                  <span class="choice-body"><span class="choice-label">Vendre en ligne</span><span class="choice-sub">E-commerce, checkout</span></span>
+                  <span class="choice-key">4</span>
+                  <span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="q1" value="Moderniser un site existant">
+                  <span class="choice-mark"></span>
+                  <span class="choice-icon">🔄</span>
+                  <span class="choice-body"><span class="choice-label">Moderniser l'existant</span><span class="choice-sub">Refonte visuelle</span></span>
+                  <span class="choice-key">5</span>
+                  <span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="q1" value="Autre" data-triggers="q1-other">
+                  <span class="choice-mark"></span>
+                  <span class="choice-icon">✏️</span>
+                  <span class="choice-body"><span class="choice-label">Autre objectif</span><span class="choice-sub">À préciser</span></span>
+                  <span class="choice-key">6</span>
+                  <span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span>
+                </label>
+              </div>
+              <div class="conditional" id="q1-other">
+                <div class="field-group">
+                  <label class="field-label" for="q1_other">Précisez votre objectif</label>
+                  <input type="text" id="q1_other" class="field-input" placeholder="Décrivez votre objectif…">
+                </div>
+              </div>
+              <div class="step-error" hidden></div>
+            </div>
+
+            <!-- STEP 2 — Site existant -->
+            <div class="step" data-step="2" hidden>
+              <div class="step-head">
+                <span class="step-designator"><span class="step-code">02 · T-10</span> Lecture systèmes</span>
+                <h2 class="step-title">Avez-vous déjà un site internet&nbsp;?</h2>
+              </div>
+              <div class="choices" data-multi="false">
+                <label class="choice"><input type="radio" name="q2" value="Oui, et je souhaite le refaire" data-triggers="q2-url"><span class="choice-mark"></span><span class="choice-icon">🔃</span><span class="choice-body"><span class="choice-label">Oui, je souhaite le refaire</span></span><span class="choice-key">1</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q2" value="Oui, mais il n'est plus à jour" data-triggers="q2-url"><span class="choice-mark"></span><span class="choice-icon">🕐</span><span class="choice-body"><span class="choice-label">Oui, plus à jour</span></span><span class="choice-key">2</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q2" value="Non, je n'en ai pas encore"><span class="choice-mark"></span><span class="choice-icon">🆕</span><span class="choice-body"><span class="choice-label">Non, pas encore</span></span><span class="choice-key">3</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q2" value="J'en ai un, mais il ne me convient pas" data-triggers="q2-url"><span class="choice-mark"></span><span class="choice-icon">😕</span><span class="choice-body"><span class="choice-label">J'en ai un, il ne me convient pas</span></span><span class="choice-key">4</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+              </div>
+              <div class="conditional" id="q2-url">
+                <div class="field-group">
+                  <label class="field-label" for="q2_url">URL actuel <span class="field-optional">(facultatif)</span></label>
+                  <input type="url" id="q2_url" class="field-input" placeholder="https://www.monsite.fr">
+                </div>
+              </div>
+              <div class="step-error" hidden></div>
+            </div>
+
+            <!-- STEP 3 — Type -->
+            <div class="step" data-step="3" hidden>
+              <div class="step-head">
+                <span class="step-designator"><span class="step-code">03 · T-5</span> Configuration</span>
+                <h2 class="step-title">Quel type de site vous correspond le mieux&nbsp;?</h2>
+              </div>
+              <div class="choices" data-multi="false">
+                <label class="choice"><input type="radio" name="q3" value="Site vitrine simple"><span class="choice-mark"></span><span class="choice-icon">🪟</span><span class="choice-body"><span class="choice-label">Vitrine simple</span><span class="choice-sub">Présentation claire</span></span><span class="choice-key">1</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q3" value="Site vitrine premium"><span class="choice-mark"></span><span class="choice-icon">💎</span><span class="choice-body"><span class="choice-label">Vitrine premium</span><span class="choice-sub">Haut de gamme</span></span><span class="choice-key">2</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q3" value="Landing page"><span class="choice-mark"></span><span class="choice-icon">🎯</span><span class="choice-body"><span class="choice-label">Landing page</span><span class="choice-sub">Conversion focus</span></span><span class="choice-key">3</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q3" value="Site e-commerce"><span class="choice-mark"></span><span class="choice-icon">🛍</span><span class="choice-body"><span class="choice-label">E-commerce</span><span class="choice-sub">Vente en ligne</span></span><span class="choice-key">4</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q3" value="Je ne sais pas encore"><span class="choice-mark"></span><span class="choice-icon">🤔</span><span class="choice-body"><span class="choice-label">Je ne sais pas encore</span><span class="choice-sub">On en discute</span></span><span class="choice-key">5</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="q3_comment">Commentaire libre <span class="field-optional">(facultatif)</span></label>
+                <textarea id="q3_comment" class="field-textarea" rows="3" placeholder="Précisez si besoin…"></textarea>
+              </div>
+              <div class="step-error" hidden></div>
+            </div>
+
+            <!-- STEP 4 — Pages (multi) -->
+            <div class="step" data-step="4" hidden>
+              <div class="step-head">
+                <span class="step-designator"><span class="step-code">04 · T-0</span> Architecture</span>
+                <h2 class="step-title">Quelles pages vous semblent indispensables&nbsp;?</h2>
+                <p class="step-sub">Sélectionnez tout ce qui vous correspond.</p>
+              </div>
+              <div class="choices choices--3col" data-multi="true">
+                <label class="choice"><input type="checkbox" name="q4" value="Accueil"><span class="choice-mark"></span><span class="choice-icon">🏠</span><span class="choice-body"><span class="choice-label">Accueil</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q4" value="À propos"><span class="choice-mark"></span><span class="choice-icon">👤</span><span class="choice-body"><span class="choice-label">À propos</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q4" value="Services"><span class="choice-mark"></span><span class="choice-icon">⚙️</span><span class="choice-body"><span class="choice-label">Services</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q4" value="Portfolio"><span class="choice-mark"></span><span class="choice-icon">🖼</span><span class="choice-body"><span class="choice-label">Portfolio</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q4" value="Boutique"><span class="choice-mark"></span><span class="choice-icon">🛍</span><span class="choice-body"><span class="choice-label">Boutique</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q4" value="Contact"><span class="choice-mark"></span><span class="choice-icon">✉️</span><span class="choice-body"><span class="choice-label">Contact</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q4" value="Prise de RDV"><span class="choice-mark"></span><span class="choice-icon">📆</span><span class="choice-body"><span class="choice-label">Prise de RDV</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q4" value="Témoignages"><span class="choice-mark"></span><span class="choice-icon">⭐</span><span class="choice-body"><span class="choice-label">Témoignages</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q4" value="FAQ"><span class="choice-mark"></span><span class="choice-icon">❓</span><span class="choice-body"><span class="choice-label">FAQ</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+              </div>
+              <div class="step-error" hidden></div>
+            </div>
+
+            <!-- STEP 5 — Style -->
+            <div class="step" data-step="5" hidden>
+              <div class="step-head">
+                <span class="step-designator"><span class="step-code">05 · MECO</span> Direction visuelle</span>
+                <h2 class="step-title">Quel style visuel vous attire le plus&nbsp;?</h2>
+              </div>
+              <div class="choices" data-multi="false">
+                <label class="choice"><input type="radio" name="q5" value="Moderne et épuré"><span class="choice-mark"></span><span class="choice-icon">✨</span><span class="choice-body"><span class="choice-label">Moderne et épuré</span><span class="choice-sub">Minimaliste, espace</span></span><span class="choice-key">1</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q5" value="Premium / haut de gamme"><span class="choice-mark"></span><span class="choice-icon">💎</span><span class="choice-body"><span class="choice-label">Premium</span><span class="choice-sub">Haut de gamme</span></span><span class="choice-key">2</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q5" value="Chaleureux et humain"><span class="choice-mark"></span><span class="choice-icon">🤝</span><span class="choice-body"><span class="choice-label">Chaleureux</span><span class="choice-sub">Humain, accessible</span></span><span class="choice-key">3</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q5" value="Corporate / rassurant"><span class="choice-mark"></span><span class="choice-icon">🏛</span><span class="choice-body"><span class="choice-label">Corporate</span><span class="choice-sub">Institutionnel</span></span><span class="choice-key">4</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q5" value="Créatif / original"><span class="choice-mark"></span><span class="choice-icon">🎨</span><span class="choice-body"><span class="choice-label">Créatif</span><span class="choice-sub">Original, audacieux</span></span><span class="choice-key">5</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q5" value="Je vous laisse me proposer"><span class="choice-mark"></span><span class="choice-icon">🙌</span><span class="choice-body"><span class="choice-label">Je vous laisse me proposer</span></span><span class="choice-key">6</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="q5_desc">Décrivez l'univers <span class="field-optional">(facultatif)</span></label>
+                <textarea id="q5_desc" class="field-textarea" rows="3" placeholder="Ex : élégant, spacieux, photos impactantes…"></textarea>
+              </div>
+              <div class="step-error" hidden></div>
+            </div>
+
+            <!-- STEP 6 — Couleurs -->
+            <div class="step" data-step="6" hidden>
+              <div class="step-head">
+                <span class="step-designator"><span class="step-code">06 · BOOST</span> Palette couleurs</span>
+                <h2 class="step-title">Quelles couleurs correspondent à votre activité&nbsp;?</h2>
+              </div>
+              <div class="choices" data-multi="false">
+                <label class="choice"><input type="radio" name="q6" value="Bleu / confiance"><span class="choice-mark"></span><span class="choice-swatch" style="background:linear-gradient(135deg,#2574F0,#0a1e4a)"></span><span class="choice-body"><span class="choice-label">Bleu</span><span class="choice-sub">Confiance, sérieux</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q6" value="Noir / blanc / premium"><span class="choice-mark"></span><span class="choice-swatch choice-swatch-bw"></span><span class="choice-body"><span class="choice-label">Noir &amp; blanc</span><span class="choice-sub">Premium, tranché</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q6" value="Vert / naturel"><span class="choice-mark"></span><span class="choice-swatch" style="background:linear-gradient(135deg,#22C55E,#0b5f33)"></span><span class="choice-body"><span class="choice-label">Vert</span><span class="choice-sub">Naturel, apaisant</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q6" value="Rouge / impact"><span class="choice-mark"></span><span class="choice-swatch" style="background:linear-gradient(135deg,#EF4444,#7b1919)"></span><span class="choice-body"><span class="choice-label">Rouge</span><span class="choice-sub">Impact, dynamisme</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q6" value="Tons neutres"><span class="choice-mark"></span><span class="choice-swatch choice-swatch-neutral"></span><span class="choice-body"><span class="choice-label">Neutres</span><span class="choice-sub">Minimaliste</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="radio" name="q6" value="J'ai ma charte"><span class="choice-mark"></span><span class="choice-icon">📋</span><span class="choice-body"><span class="choice-label">J'ai une charte</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="q6_details">Précisions <span class="field-optional">(facultatif)</span></label>
+                <input type="text" id="q6_details" class="field-input" placeholder="Ex : logo bleu nuit, touches dorées…">
+              </div>
+              <div class="step-error" hidden></div>
+            </div>
+
+            <!-- STEP 7 — Priorités (multi) -->
+            <div class="step" data-step="7" hidden>
+              <div class="step-head">
+                <span class="step-designator"><span class="step-code">07 · SEP</span> Priorités</span>
+                <h2 class="step-title">Qu'attendez-vous en priorité&nbsp;?</h2>
+                <p class="step-sub">Sélectionnez tout ce qui vous correspond.</p>
+              </div>
+              <div class="choices" data-multi="true">
+                <label class="choice"><input type="checkbox" name="q7" value="Qu'il inspire confiance"><span class="choice-mark"></span><span class="choice-icon">🛡</span><span class="choice-body"><span class="choice-label">Qu'il inspire confiance</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q7" value="Qu'il fasse plus professionnel"><span class="choice-mark"></span><span class="choice-icon">💼</span><span class="choice-body"><span class="choice-label">Plus professionnel</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q7" value="Qu'il convertisse davantage"><span class="choice-mark"></span><span class="choice-icon">📈</span><span class="choice-body"><span class="choice-label">Qu'il convertisse</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q7" value="Rapide et simple"><span class="choice-mark"></span><span class="choice-icon">⚡</span><span class="choice-body"><span class="choice-label">Rapide &amp; simple</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q7" value="Démarque des concurrents"><span class="choice-mark"></span><span class="choice-icon">🏆</span><span class="choice-body"><span class="choice-label">Me démarque</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q7" value="Valorise mes offres"><span class="choice-mark"></span><span class="choice-icon">🎯</span><span class="choice-body"><span class="choice-label">Valorise mes offres</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+              </div>
+              <div class="step-error" hidden></div>
+            </div>
+
+            <!-- STEP 8 — Ressources + Upload -->
+            <div class="step" data-step="8" hidden>
+              <div class="step-head">
+                <span class="step-designator"><span class="step-code">08 · COAST</span> Ressources</span>
+                <h2 class="step-title">Avez-vous déjà des éléments à intégrer&nbsp;?</h2>
+                <p class="step-sub">Sélectionnez tout ce que vous possédez déjà.</p>
+              </div>
+              <div class="choices choices--3col" data-multi="true">
+                <label class="choice"><input type="checkbox" name="q8_assets" value="Logo"><span class="choice-mark"></span><span class="choice-icon">🔷</span><span class="choice-body"><span class="choice-label">Logo</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q8_assets" value="Photos"><span class="choice-mark"></span><span class="choice-icon">📸</span><span class="choice-body"><span class="choice-label">Photos</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q8_assets" value="Textes"><span class="choice-mark"></span><span class="choice-icon">📝</span><span class="choice-body"><span class="choice-label">Textes</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q8_assets" value="Avis"><span class="choice-mark"></span><span class="choice-icon">⭐</span><span class="choice-body"><span class="choice-label">Avis clients</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q8_assets" value="Portfolio"><span class="choice-mark"></span><span class="choice-icon">🖼</span><span class="choice-body"><span class="choice-label">Réalisations</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice"><input type="checkbox" name="q8_assets" value="Charte"><span class="choice-mark"></span><span class="choice-icon">🎨</span><span class="choice-body"><span class="choice-label">Charte graphique</span></span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+              </div>
+
+              <div class="upload-zone" id="upload-zone">
+                <div class="upload-icon">📁</div>
+                <p class="upload-title">Importez vos fichiers</p>
+                <p class="upload-desc">Logo, photos, plaquette, charte graphique… tout document utile.</p>
+                <button type="button" class="btn btn-secondary" id="upload-trigger">Choisir des fichiers</button>
+                <input type="file" id="file-input" hidden multiple accept=".jpg,.jpeg,.png,.webp,.svg,.pdf,.doc,.docx">
+                <p class="upload-specs">JPG · PNG · WEBP · SVG · PDF · DOC · DOCX · MAX 10 MO</p>
+                <div class="file-list" id="file-list" hidden></div>
+              </div>
+              <div class="step-error" hidden></div>
+            </div>
+
+            <!-- STEP 9 — Attentes -->
+            <div class="step" data-step="9" hidden>
+              <div class="step-head">
+                <span class="step-designator"><span class="step-code">09 · ORB INJ</span> Attentes</span>
+                <h2 class="step-title">Qu'aimeriez-vous absolument retrouver sur votre maquette&nbsp;?</h2>
+                <p class="step-sub">Soyez aussi précis que vous le souhaitez.</p>
+              </div>
+              <div class="field-group">
+                <textarea id="q9_expectations" class="field-textarea field-textarea-lg" rows="8" placeholder="Ex : une page d'accueil impactante, mes projets en avant, un bouton RDV très visible, des témoignages clients…"></textarea>
+              </div>
+              <div class="step-error" hidden></div>
+            </div>
+
+            <!-- STEP 10 — Disponibilité -->
+            <div class="step" data-step="10" hidden>
+              <div class="step-head">
+                <span class="step-designator"><span class="step-code">10 · DEPLOY</span> Calendrier</span>
+                <h2 class="step-title">Si la maquette vous plaît, êtes-vous prêt à échanger&nbsp;?</h2>
+              </div>
+              <div class="choices" data-multi="false">
+                <label class="choice choice-lg"><input type="radio" name="q10" value="Oui, rapidement"><span class="choice-mark"></span><span class="choice-icon">🚀</span><span class="choice-body"><span class="choice-label">Oui, rapidement</span><span class="choice-sub">Je suis prêt à avancer</span></span><span class="choice-key">1</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice choice-lg"><input type="radio" name="q10" value="Oui, dans les prochaines semaines"><span class="choice-mark"></span><span class="choice-icon">📅</span><span class="choice-body"><span class="choice-label">Dans les prochaines semaines</span><span class="choice-sub">Je prends mon temps</span></span><span class="choice-key">2</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice choice-lg"><input type="radio" name="q10" value="Peut-être, selon la proposition"><span class="choice-mark"></span><span class="choice-icon">🤔</span><span class="choice-body"><span class="choice-label">Peut-être</span><span class="choice-sub">Ça dépendra de la maquette</span></span><span class="choice-key">3</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+                <label class="choice choice-lg"><input type="radio" name="q10" value="Pas dans l'immédiat"><span class="choice-mark"></span><span class="choice-icon">⏳</span><span class="choice-body"><span class="choice-label">Pas dans l'immédiat</span><span class="choice-sub">Projection plus tard</span></span><span class="choice-key">4</span><span class="choice-burst"><span></span><span></span><span></span><span></span><span></span></span></label>
+              </div>
+              <div class="step-error" hidden></div>
+            </div>
+
+            <!-- STEP 11 — Coordonnées -->
+            <div class="step" data-step="11" hidden>
+              <div class="step-head">
+                <span class="step-designator"><span class="step-code">11 · COMM</span> Uplink</span>
+                <h2 class="step-title">Vos coordonnées pour recevoir la maquette</h2>
+                <p class="step-sub">Dernière étape avant la transmission.</p>
+              </div>
+              <div class="fields-grid">
+                <div class="field-group">
+                  <label class="field-label" for="company_name">Entreprise <span class="field-required">*</span></label>
+                  <input type="text" id="company_name" class="field-input" placeholder="Votre entreprise" autocomplete="organization">
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="contact_name">Votre nom <span class="field-required">*</span></label>
+                  <input type="text" id="contact_name" class="field-input" placeholder="Prénom Nom" autocomplete="name">
+                </div>
+                <div class="field-group span-2">
+                  <label class="field-label" for="contact_email">Email <span class="field-required">*</span></label>
+                  <input type="email" id="contact_email" class="field-input" placeholder="vous@entreprise.fr" autocomplete="email">
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="contact_phone">Téléphone <span class="field-optional">(facultatif)</span></label>
+                  <input type="tel" id="contact_phone" class="field-input" placeholder="06 00 00 00 00" autocomplete="tel">
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="current_website">Site web actuel <span class="field-optional">(facultatif)</span></label>
+                  <input type="url" id="current_website" class="field-input" placeholder="https://www.monsite.fr" autocomplete="url">
+                </div>
+              </div>
+              <div class="rgpd">
+                <label>
+                  <input type="checkbox" id="rgpd">
+                  <span>J'accepte que mes informations soient utilisées pour être recontacté dans le cadre de ma demande. <span class="field-required">*</span></span>
+                </label>
+              </div>
+              <div class="step-error" hidden></div>
+            </div>
+
+          </div><!-- /step-viewport -->
+
+          <!-- Nav -->
+          <div class="form-nav">
+            <button type="button" class="btn-back" id="btn-back" hidden>← Retour</button>
+            <span class="nav-hint" style="margin-left:auto;margin-right:auto"><kbd>↵</kbd> Continuer · <kbd>1-9</kbd> Raccourcis</span>
+            <button type="button" class="btn btn-primary" id="btn-next">
+              Continuer <span class="btn-arrow">→</span>
+            </button>
+            <button type="submit" class="btn btn-primary" id="btn-submit" hidden>
+              Transmettre la mission <span class="btn-arrow">→</span>
+            </button>
+          </div>
+        </form>
+
+      </div><!-- /form-center -->
+
+      <!-- RIGHT canvas panel -->
+      <aside class="journey-panel journey-panel--right" aria-hidden="true">
+        <canvas id="journey-right-canvas"></canvas>
+        <div class="journey-label">Déploiement</div>
+        <div class="journey-telemetry">
+          <div class="journey-telemetry-item">
+            <div class="journey-telemetry-label">Phase</div>
+            <div class="journey-telemetry-value" id="telemetry-phase">PRE-FLT</div>
+          </div>
+          <div class="journey-telemetry-item">
+            <div class="journey-telemetry-label">TX</div>
+            <div class="journey-telemetry-value" id="telemetry-tx">0%</div>
+          </div>
+        </div>
+      </aside>
+
+    </div><!-- /form-wrap -->
   </section>
 
-  <!-- ────────────────────────────────────────────────
-       ÉCRAN 3 — CONFIRMATION
-  ──────────────────────────────────────────────── -->
-  <section id="screen-confirm" class="screen screen-confirm" aria-label="Confirmation" hidden>
-    <div class="confirm-container">
-      <div class="confirm-icon-wrap">
-        <span class="confirm-icon" aria-hidden="true">✓</span>
+  <!-- ── SCREEN 3 · CONFIRM / BOARDING PASS ──────── -->
+  <section class="screen screen-confirm" data-screen="confirm">
+    <div class="confirm-layout">
+      <div class="confirm-hero">
+        <div class="confirm-eyebrow">Mission deployed · transmission reçue</div>
+        <h2 class="confirm-title">Votre satellite est <span class="grad">en orbite</span>.</h2>
+        <p class="confirm-sub">
+          Nous avons bien reçu votre demande et analysons vos réponses.
+          Une première maquette personnalisée vous parvient sous 48 à 72 heures ouvrées.
+        </p>
       </div>
-      <h2 class="confirm-title">Votre demande a bien été envoyée&nbsp;!</h2>
-      <p class="confirm-message">
-        Merci pour votre confiance. Nous avons bien reçu vos réponses et allons
-        les étudier attentivement pour concevoir une première maquette personnalisée,
-        au plus proche de vos attentes.
-      </p>
-      <p class="confirm-delay">
-        Nous revenons généralement vers vous sous
-        <strong>48 à 72 heures ouvrées</strong>.
-      </p>
-      <div class="confirm-id-block" id="confirm-id-block" hidden>
-        <span class="confirm-id-label">Référence de votre demande</span>
-        <span class="confirm-id-value" id="confirm-id-value"></span>
+
+      <!-- Boarding pass -->
+      <div class="boarding">
+        <div class="boarding-main">
+          <div class="boarding-header">
+            <div class="boarding-brand">
+              <span class="boarding-brand-mark">A</span>
+              astr.studio
+            </div>
+            <div class="boarding-ref">
+              <div class="boarding-ref-label">Référence mission</div>
+              <div class="boarding-ref-value" id="boarding-ref">ASTR-000000</div>
+            </div>
+          </div>
+
+          <div class="boarding-route">
+            <div class="boarding-station">
+              <div class="boarding-station-label">Départ</div>
+              <div class="boarding-station-code">BRF</div>
+              <div class="boarding-station-name">Briefing client</div>
+            </div>
+            <div class="boarding-route-arc">
+              <svg viewBox="0 0 100 50">
+                <path d="M 5 40 Q 50 -10 95 40" fill="none" stroke="url(#arcg)" stroke-width="1.5" stroke-dasharray="3 3"/>
+                <circle cx="5" cy="40" r="3" fill="#5ce3ff"/>
+                <circle cx="95" cy="40" r="3" fill="#a6ff6b"/>
+                <defs>
+                  <linearGradient id="arcg" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0" stop-color="#5ce3ff"/>
+                    <stop offset="1" stop-color="#a6ff6b"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+            <div class="boarding-station boarding-station--right">
+              <div class="boarding-station-label">Arrivée</div>
+              <div class="boarding-station-code">DLV</div>
+              <div class="boarding-station-name">Maquette livrée</div>
+            </div>
+          </div>
+
+          <div class="boarding-details">
+            <div>
+              <div class="boarding-detail-label">Passager</div>
+              <div class="boarding-detail-value" id="boarding-passenger">—</div>
+            </div>
+            <div>
+              <div class="boarding-detail-label">Entreprise</div>
+              <div class="boarding-detail-value" id="boarding-company">—</div>
+            </div>
+            <div>
+              <div class="boarding-detail-label">Date</div>
+              <div class="boarding-detail-value" id="boarding-date">—</div>
+            </div>
+            <div>
+              <div class="boarding-detail-label">Classe</div>
+              <div class="boarding-detail-value" id="boarding-class">PREMIUM</div>
+            </div>
+          </div>
+
+          <div class="boarding-summary">
+            <div class="boarding-summary-title">Payload · briefing transmis</div>
+            <ul class="boarding-summary-list" id="boarding-summary-list" style="list-style:none"></ul>
+          </div>
+        </div>
+
+        <div class="boarding-stub">
+          <div class="boarding-stub-eyebrow">Mission ticket</div>
+          <div class="boarding-qr"></div>
+          <div class="boarding-stub-footer">
+            <strong>Retour sous 48-72h</strong><br>
+            contact@astr.studio
+          </div>
+        </div>
       </div>
-      <a
-        href="https://astr.studio"
-        class="btn btn-primary"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Découvrir nos réalisations
-        <span class="btn-icon" aria-hidden="true">→</span>
-      </a>
+
+      <!-- Orbit animation -->
+      <div class="confirm-orbit">
+        <canvas id="confirm-orbit-canvas"></canvas>
+      </div>
+
+      <div class="confirm-actions">
+        <a href="https://astr.studio" target="_blank" rel="noopener" class="btn btn-secondary">
+          Découvrir astr.studio <span class="btn-arrow">↗</span>
+        </a>
+        <button class="btn btn-primary" id="btn-restart">
+          Nouvelle mission <span class="btn-arrow">↻</span>
+        </button>
+      </div>
     </div>
   </section>
 
 </div><!-- #app -->
+
+<!-- Tweaks panel -->
+<div id="tweaks-panel"></div>
 
 <script src="app.js"></script>
 </body>
