@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cloudflare Worker â€” prospect-qualifier
  * Sert les fichiers statiques + gÃ¨re POST /api/submit via SMTP SSL.
  */
