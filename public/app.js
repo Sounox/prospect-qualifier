@@ -329,7 +329,6 @@ function showScreen(name) {
   $$(".screen").forEach(s => s.classList.toggle("is-active", s.dataset.screen === name));
   window.scrollTo({ top: 0, behavior: "smooth" });
   if (name === "form") updateJourneyTelemetry();
-  if (name === "confirm") setTimeout(() => initConfirmOrbit(), 50);
   saveState();
 }
 
@@ -536,6 +535,19 @@ function renderBoardingPass(a) {
     li.innerHTML = `<span><strong>${k}</strong> — ${v}</span>`;
     summary.appendChild(li);
   });
+
+  const qrEl = $("#boarding-qr");
+  if (qrEl && typeof QRCode !== "undefined") {
+    qrEl.innerHTML = "";
+    new QRCode(qrEl, {
+      text: "https://astr.studio/",
+      width: 148,
+      height: 148,
+      colorDark: "#020510",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+  }
 }
 
 /* ── Canvas: intro — TERRE photoréaliste (statique) ── */
@@ -1294,110 +1306,6 @@ function updateJourneyTelemetry() {
   if (txEl) txEl.textContent = Math.round(r * 100) + "%";
 }
 
-/* ── Confirm orbit canvas ─────────────────────────── */
-function initConfirmOrbit() {
-  const canvas = $("#confirm-orbit-canvas");
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  let W, H;
-  function resize() {
-    const r = canvas.getBoundingClientRect();
-    W = r.width; H = r.height;
-    canvas.width = W * dpr; canvas.height = H * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-  resize();
-  window.addEventListener("resize", resize);
-
-  const stars = Array.from({length: 120}, () => ({
-    x: Math.random(), y: Math.random(),
-    r: Math.random() * 1.3 + 0.3,
-    tw: Math.random() * Math.PI * 2,
-  }));
-  let t = 0;
-
-  function frame() {
-    ctx.clearRect(0, 0, W, H);
-    // bg
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, "rgba(3,7,20,0)");
-    g.addColorStop(1, "rgba(8,16,40,0.5)");
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
-
-    // stars
-    stars.forEach(s => {
-      ctx.globalAlpha = 0.4 + 0.5 * (0.5 + 0.5 * Math.sin(t * 0.03 + s.tw));
-      ctx.fillStyle = "#cde4ff";
-      ctx.beginPath();
-      ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
-      ctx.fill();
-    });
-    ctx.globalAlpha = 1;
-
-    // Earth bottom-center (photoréaliste via EarthTexture)
-    const ex = W / 2;
-    const ey = H + 60;
-    const er = W * 0.55;
-    const drew = EarthTexture.drawSphere(ctx, ex, ey, er, 0.65, 0.35);
-    if (!drew) {
-      const eGrad = ctx.createRadialGradient(ex - er * 0.25, ey - er * 0.25, er * 0.1, ex, ey, er);
-      eGrad.addColorStop(0, "#7ab4ff");
-      eGrad.addColorStop(0.5, "#2e7af8");
-      eGrad.addColorStop(1, "#0a1e4a");
-      ctx.fillStyle = eGrad;
-      ctx.beginPath(); ctx.arc(ex, ey, er, 0, Math.PI * 2); ctx.fill();
-    }
-
-    // Orbit ring
-    const or = er + 40;
-    ctx.strokeStyle = "rgba(92,227,255,0.5)";
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 6]);
-    ctx.beginPath(); ctx.arc(ex, ey, or, 0, Math.PI * 2); ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Multiple satellites orbiting
-    for (let i = 0; i < 3; i++) {
-      const ang = -Math.PI * 0.4 + i * 0.6 + t * 0.005;
-      const sx = ex + Math.cos(ang) * or;
-      const sy = ey + Math.sin(ang) * or;
-      const isMain = i === 1;
-      ctx.save();
-      ctx.translate(sx, sy);
-      ctx.rotate(ang + Math.PI / 2);
-      // panels
-      ctx.fillStyle = "#2574F0";
-      ctx.fillRect(-24, -4, 12, 8);
-      ctx.fillRect(12, -4, 12, 8);
-      // body
-      ctx.fillStyle = isMain ? "#a6ff6b" : "#e8f4ff";
-      ctx.fillRect(-7, -5, 14, 10);
-      ctx.fillStyle = "#02061a";
-      ctx.fillRect(-4, -2, 8, 4);
-      ctx.restore();
-
-      // signal
-      if (isMain) {
-        const pr = ((t * 0.6) % 60);
-        ctx.strokeStyle = `rgba(166,255,107,${Math.max(0, 1 - pr / 60) * 0.6})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(sx, sy, pr, 0, Math.PI * 2); ctx.stroke();
-      }
-    }
-
-    // Label
-    ctx.fillStyle = "rgba(166,255,107,0.9)";
-    ctx.font = "700 11px 'JetBrains Mono', monospace";
-    ctx.textAlign = "center";
-    ctx.fillText("MISSION DEPLOYED · ORBIT STABLE", W / 2, 24);
-
-    t++;
-    requestAnimationFrame(frame);
-  }
-  frame();
-}
 
 /* ── Space background canvas ──────────────────────── */
 function initSpaceCanvas() {

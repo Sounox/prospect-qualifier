@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -587,19 +588,12 @@
 
         <div class="boarding-stub">
           <div class="boarding-stub-eyebrow">Mission ticket</div>
-          <div class="boarding-qr">
-            <img src="qr.png" alt="QR Code mission astr.studio" class="boarding-qr-img">
-          </div>
+          <div class="boarding-qr" id="boarding-qr"></div>
           <div class="boarding-stub-footer">
             <strong>Retour sous 48-72h</strong><br>
             contact@astr.studio
           </div>
         </div>
-      </div>
-
-      <!-- Orbit animation -->
-      <div class="confirm-orbit">
-        <canvas id="confirm-orbit-canvas"></canvas>
       </div>
 
       <div class="confirm-actions">
