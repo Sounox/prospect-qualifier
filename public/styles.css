@@ -1770,7 +1770,7 @@ a { color: inherit; }
    SCREEN 3 — CONFIRMATION / BOARDING PASS
 ───────────────────────────────────────────────────── */
 .screen-confirm {
-  padding: 36px 32px 56px;
+  padding: 20px 32px 32px;
   align-items: center; justify-content: center;
   width: 100%;
 }
@@ -1778,7 +1778,7 @@ a { color: inherit; }
   width: 100%;
   max-width: 1080px;
   display: grid;
-  gap: 22px;
+  gap: 16px;
 }
 .confirm-hero {
   text-align: center;
@@ -1792,7 +1792,7 @@ a { color: inherit; }
   border: 1px solid rgba(166,255,107,0.4);
   border-radius: 999px;
   background: rgba(166,255,107,0.08);
-  margin-bottom: 24px;
+  margin-bottom: 14px;
 }
 .confirm-eyebrow::before {
   content: "";
@@ -1803,12 +1803,12 @@ a { color: inherit; }
 }
 .confirm-title {
   font-family: var(--font-head);
-  font-size: clamp(36px, 4.5vw, 58px);
+  font-size: clamp(30px, 3.8vw, 48px);
   line-height: 1.05;
   letter-spacing: -0.025em;
   font-weight: 800;
   color: #fff;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   text-wrap: balance;
 }
 .confirm-title .grad {
@@ -1817,7 +1817,7 @@ a { color: inherit; }
   -webkit-text-fill-color: transparent;
 }
 .confirm-sub {
-  font-size: 16px;
+  font-size: 14.5px;
   color: var(--text-mute);
   max-width: 600px;
   margin: 0 auto;
@@ -1852,27 +1852,23 @@ a { color: inherit; }
 }
 
 .boarding-main {
-  padding: 32px 36px;
+  padding: 22px 28px;
   position: relative;
 }
 .boarding-header {
   display: flex; justify-content: space-between; align-items: flex-start;
-  margin-bottom: 28px;
-  padding-bottom: 20px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
   border-bottom: 1px dashed rgba(120,180,255,0.25);
 }
 .boarding-brand {
-  display: flex; align-items: center; gap: 12px;
-  font-family: var(--font-head); font-weight: 800;
-  font-size: 18px;
+  display: flex; align-items: center;
 }
-.boarding-brand-mark {
-  width: 34px; height: 34px;
-  background: linear-gradient(135deg, #2574F0, #5ce3ff);
-  border-radius: 9px;
-  display: grid; place-items: center;
-  font-family: var(--font-mono); font-weight: 900;
-  color: #02061a; font-size: 13px;
+.boarding-logo-img {
+  height: 28px;
+  width: auto;
+  display: block;
+  filter: invert(1) hue-rotate(180deg) drop-shadow(0 0 10px rgba(79,157,255,0.3));
 }
 .boarding-ref {
   text-align: right;
@@ -1891,8 +1887,8 @@ a { color: inherit; }
 }
 .boarding-route {
   display: grid; grid-template-columns: 1fr auto 1fr;
-  gap: 24px; align-items: center;
-  margin-bottom: 28px;
+  gap: 16px; align-items: center;
+  margin-bottom: 18px;
 }
 .boarding-station {
   font-family: var(--font-mono);
@@ -1917,7 +1913,7 @@ a { color: inherit; }
 .boarding-station--right { text-align: right; }
 .boarding-route-arc {
   position: relative;
-  width: 100px; height: 50px;
+  width: 180px; height: 64px;
 }
 .boarding-route-arc svg {
   position: absolute; inset: 0;
@@ -1927,7 +1923,7 @@ a { color: inherit; }
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 14px;
-  margin-bottom: 24px;
+  margin-bottom: 14px;
   font-family: var(--font-mono);
 }
 .boarding-detail-label {
@@ -1970,9 +1966,9 @@ a { color: inherit; }
   background:
     linear-gradient(135deg, rgba(37,116,240,0.2), rgba(92,227,255,0.1));
   border-left: 2px dashed rgba(120,180,255,0.3);
-  padding: 32px 24px;
+  padding: 22px 20px;
   display: flex; flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   position: relative;
 }
 .boarding-stub::before,
@@ -1995,26 +1991,18 @@ a { color: inherit; }
 .boarding-qr {
   width: 160px; height: 160px;
   margin: 0 auto;
-  background:
-    repeating-conic-gradient(#fff 0 25%, #02061a 0 50%) 0 0 / 12px 12px;
   border-radius: 10px;
-  position: relative;
   overflow: hidden;
+  background: #ffffff;
+  padding: 6px;
+  box-sizing: border-box;
 }
-.boarding-qr::before {
-  content: "";
-  position: absolute; inset: 14px;
-  background:
-    radial-gradient(circle at 20% 20%, #fff 10%, transparent 10.5%) 0 0 / 24px 24px,
-    radial-gradient(circle at 80% 20%, #fff 10%, transparent 10.5%) 0 0 / 24px 24px,
-    radial-gradient(circle at 20% 80%, #fff 10%, transparent 10.5%) 0 0 / 24px 24px,
-    #02061a;
-  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%;
-  background-repeat: no-repeat;
-  border: 3px solid #fff;
-  border-radius: 8px;
-  filter: contrast(1.1);
-  opacity: 0;
+.boarding-qr-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 4px;
+  object-fit: contain;
 }
 .boarding-stub-footer {
   font-family: var(--font-mono); font-size: 10px;

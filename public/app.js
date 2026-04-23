@@ -1336,16 +1336,19 @@ function initConfirmOrbit() {
     });
     ctx.globalAlpha = 1;
 
-    // Earth bottom-center
+    // Earth bottom-center (photoréaliste via EarthTexture)
     const ex = W / 2;
     const ey = H + 60;
     const er = W * 0.55;
-    const eGrad = ctx.createRadialGradient(ex - er * 0.25, ey - er * 0.25, er * 0.1, ex, ey, er);
-    eGrad.addColorStop(0, "#7ab4ff");
-    eGrad.addColorStop(0.5, "#2e7af8");
-    eGrad.addColorStop(1, "#0a1e4a");
-    ctx.fillStyle = eGrad;
-    ctx.beginPath(); ctx.arc(ex, ey, er, 0, Math.PI * 2); ctx.fill();
+    const drew = EarthTexture.drawSphere(ctx, ex, ey, er, 0.65, 0.35);
+    if (!drew) {
+      const eGrad = ctx.createRadialGradient(ex - er * 0.25, ey - er * 0.25, er * 0.1, ex, ey, er);
+      eGrad.addColorStop(0, "#7ab4ff");
+      eGrad.addColorStop(0.5, "#2e7af8");
+      eGrad.addColorStop(1, "#0a1e4a");
+      ctx.fillStyle = eGrad;
+      ctx.beginPath(); ctx.arc(ex, ey, er, 0, Math.PI * 2); ctx.fill();
+    }
 
     // Orbit ring
     const or = er + 40;
