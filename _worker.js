@@ -1,11 +1,11 @@
 /**
- * Cloudflare Worker â€” prospect-qualifier
- * Sert les fichiers statiques + gÃ¨re POST /api/submit via SMTP SSL.
+ * Cloudflare Worker — prospect-qualifier
+ * Sert les fichiers statiques + gère POST /api/submit via SMTP SSL.
  */
 
 import { connect } from 'cloudflare:sockets';
 
-// â”€â”€â”€ Client SMTP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Client SMTP ─────────────────────────────────────────────────────────────
 
 class SmtpClient {
   constructor() {
@@ -46,7 +46,7 @@ class SmtpClient {
         return line.trimEnd();
       }
       const { value, done } = await this.reader.read();
-      if (done) throw new Error('Socket SMTP fermÃ©');
+      if (done) throw new Error('Socket SMTP fermé');
       this.buffer += this.decoder.decode(value, { stream: true });
     }
   }
@@ -80,7 +80,7 @@ class SmtpClient {
   }
 }
 
-// â”€â”€â”€ Helpers encodage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers encodage ────────────────────────────────────────────────────────
 
 function b64utf8(str) {
   return btoa(unescape(encodeURIComponent(str)));
@@ -95,7 +95,7 @@ function b64bytes(arrayBuffer) {
 
 function getField(fd, key) {
   const vals = fd.getAll(key).filter(v => typeof v === 'string');
-  return vals.length ? vals.join(', ') : 'â€”';
+  return vals.length ? vals.join(', ') : '—';
 }
 
 function formatSize(bytes) {
@@ -110,41 +110,81 @@ function getText(fd, key) {
 }
 
 function interestBadge(val) {
-  if (!val)                  return `<span style="padding:5px 12px;border-radius:20px;background:#F3F4F6;color:#6B7280;font-weight:600;font-size:13px">Non prÃ©cisÃ©</span>`;
-  if (val.includes('rapidement')) return `<span style="padding:5px 12px;border-radius:20px;background:#D1FAE5;color:#065F46;font-weight:600;font-size:13px">ðŸ”¥ ${val}</span>`;
-  if (val.includes('semaines'))   return `<span style="padding:5px 12px;border-radius:20px;background:#FEF3C7;color:#92400E;font-weight:600;font-size:13px">â³ ${val}</span>`;
-  if (val.includes('Peut-Ãªtre'))  return `<span style="padding:5px 12px;border-radius:20px;background:#EFF6FF;color:#1D4ED8;font-weight:600;font-size:13px">ðŸ’¡ ${val}</span>`;
-  return `<span style="padding:5px 12px;border-radius:20px;background:#F3F4F6;color:#6B7280;font-weight:600;font-size:13px">ðŸ’¤ ${val}</span>`;
+  if (!val)                  return `<span style="padding:5px 12px;border-radius:20px;background:#F3F4F6;color:#6B7280;font-weight:600;font-size:13px">Non précisé</span>`;
+  if (val.includes('rapidement')) return `<span style="padding:5px 12px;border-radius:20px;background:#D1FAE5;color:#065F46;font-weight:600;font-size:13px">🔥 ${val}</span>`;
+  if (val.includes('semaines'))   return `<span style="padding:5px 12px;border-radius:20px;background:#FEF3C7;color:#92400E;font-weight:600;font-size:13px">⏳ ${val}</span>`;
+  if (val.includes('Peut-être'))  return `<span style="padding:5px 12px;border-radius:20px;background:#EFF6FF;color:#1D4ED8;font-weight:600;font-size:13px">💡 ${val}</span>`;
+  return `<span style="padding:5px 12px;border-radius:20px;background:#F3F4F6;color:#6B7280;font-weight:600;font-size:13px">💤 ${val}</span>`;
 }
 
-// â”€â”€â”€ MIME builder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── MIME builder ────────────────────────────────────────────────────────────
 
-function buildMime({ from, to, subject, html, text, attachments }) {
+function headerSafe(value) {
+  return String(value || '').replace(/[\r\n"<>]+/g, ' ').trim();
+}
+
+function encodeWord(value) {
+  return `=?UTF-8?B?${b64utf8(headerSafe(value))}?=`;
+}
+
+function quotedPrintable(str) {
+  const bytes = new TextEncoder().encode(String(str).replace(/\r?\n/g, '\r\n'));
+  const out = [];
+  let line = '';
+  const push = (token) => {
+    if (line.length + token.length > 75) { out.push(line + '='); line = ''; }
+    line += token;
+  };
+  for (let i = 0; i < bytes.length; i++) {
+    const b = bytes[i];
+    if (b === 13 && bytes[i + 1] === 10) {
+      // espace ou tabulation en fin de ligne : à encoder
+      if (/[ \t]$/.test(line)) {
+        const last = line.slice(-1);
+        line = line.slice(0, -1) + (last === ' ' ? '=20' : '=09');
+      }
+      out.push(line); line = ''; i++;
+      continue;
+    }
+    if ((b >= 33 && b <= 126 && b !== 61) || b === 32 || b === 9) push(String.fromCharCode(b));
+    else push('=' + b.toString(16).toUpperCase().padStart(2, '0'));
+  }
+  out.push(line);
+  return out.join('\r\n');
+}
+
+function buildMime({ from, to, subject, html, text, attachments, messageId }) {
   const b = 'bp_' + crypto.randomUUID().replace(/-/g, '');
   const lines = [
     `From: ${from}`,
-    `To: ${to}`,
-    `Subject: =?UTF-8?B?${b64utf8(subject)}?=`,
+    `To: ${to.join(', ')}`,
+  ];
+  // Pas de Reply-To vers l'adresse du prospect : les filtres antispam le prennent
+  // pour une usurpation (rspamd SPOOF_REPLYTO). Le mail contient un bouton « Répondre ».
+  lines.push(
+    `Subject: ${encodeWord(subject)}`,
+    `Date: ${new Date().toUTCString().replace('GMT', '+0000')}`,
+    `Message-ID: <${messageId || crypto.randomUUID()}@launch.astr.studio>`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/mixed; boundary="${b}"`,
     '',
     `--${b}`,
     'Content-Type: text/plain; charset=UTF-8',
-    'Content-Transfer-Encoding: base64',
+    'Content-Transfer-Encoding: quoted-printable',
     '',
-    b64utf8(text).match(/.{1,76}/g).join('\r\n'),
+    quotedPrintable(text),
     `--${b}`,
     'Content-Type: text/html; charset=UTF-8',
-    'Content-Transfer-Encoding: base64',
+    'Content-Transfer-Encoding: quoted-printable',
     '',
-    b64utf8(html).match(/.{1,76}/g).join('\r\n'),
-  ];
+    quotedPrintable(html),
+  );
 
   for (const a of attachments) {
     lines.push(
       `--${b}`,
-      `Content-Type: ${a.type}; name="${a.name}"`,
-      `Content-Disposition: attachment; filename="${a.name}"`,
+      `Content-Type: ${headerSafe(a.type)}; name="${encodeWord(a.name)}"`,
+      `Content-Disposition: attachment; filename="${encodeWord(a.name)}"`,
       'Content-Transfer-Encoding: base64',
       '',
       a.data.match(/.{1,76}/g).join('\r\n'),
@@ -155,7 +195,7 @@ function buildMime({ from, to, subject, html, text, attachments }) {
   return lines.join('\r\n');
 }
 
-// â”€â”€â”€ Envoi SMTP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Envoi SMTP ───────────────────────────────────────────────────────────────
 
 function parseSecureTransport(value, fallback) {
   const v = String(value || '').trim().toLowerCase();
@@ -190,7 +230,10 @@ function resolveMailConfig(env) {
     smtpUser: pickEnv(env, ['SMTP_USER', 'SMTP_USERNAME', 'MAIL_USER', 'MAIL_USERNAME']),
     smtpPass: pickEnv(env, ['SMTP_PASS', 'SMTP_PASSWORD', 'MAIL_PASS', 'MAIL_PASSWORD']),
     fromEmail: pickEnv(env, ['FROM_EMAIL', 'MAIL_FROM', 'SMTP_FROM']),
-    toEmail: pickEnv(env, ['TO_EMAIL', 'MAIL_TO', 'SMTP_TO']),
+    toEmails: pickEnv(env, ['TO_EMAIL', 'MAIL_TO', 'SMTP_TO'])
+      .split(/[,;\s]+/)
+      .map((v) => v.trim())
+      .filter((v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)),
     heloHost: pickEnv(env, ['SMTP_HELO_HOST', 'MAIL_HELO_HOST'], 'launch.astr.studio'),
     agencyName: pickEnv(env, ['AGENCY_NAME'], 'astr.studio'),
     mailChannelsApiKey: pickEnv(env, ['MAILCHANNELS_API_KEY', 'MAILCHANNELS_APIKEY', 'MC_API_KEY']),
@@ -308,15 +351,18 @@ async function sendViaSmtp(config, payload, candidate) {
     const mf = await smtp.cmd(`MAIL FROM:<${config.fromEmail}>`);
     if (mf.code !== 250) throw new Error(`MAIL FROM: ${mf.text}`);
 
-    const rt = await smtp.cmd(`RCPT TO:<${config.toEmail}>`);
-    if (rt.code !== 250 && rt.code !== 251) throw new Error(`RCPT TO: ${rt.text}`);
+    for (const rcpt of config.toEmails) {
+      const rt = await smtp.cmd(`RCPT TO:<${rcpt}>`);
+      if (rt.code !== 250 && rt.code !== 251) throw new Error(`RCPT TO ${rcpt}: ${rt.text}`);
+    }
 
     const di = await smtp.cmd('DATA');
     if (di.code !== 354) throw new Error(`DATA: ${di.text}`);
 
     const msg = buildMime({
       from: `"${config.agencyName}" <${config.fromEmail}>`,
-      to: config.toEmail,
+      to: config.toEmails,
+      messageId: payload.messageId,
       subject: payload.subject,
       html: payload.html,
       text: payload.text,
@@ -334,12 +380,12 @@ async function sendViaSmtp(config, payload, candidate) {
 }
 
 async function sendViaMailChannels(config, payload) {
-  if (!config.fromEmail || !config.toEmail) {
+  if (!config.fromEmail || !config.toEmails.length) {
     throw new Error('MAILCHANNELS config missing (FROM_EMAIL/TO_EMAIL)');
   }
 
   const reqBody = {
-    personalizations: [{ to: [{ email: config.toEmail }] }],
+    personalizations: [{ to: config.toEmails.map((email) => ({ email })) }],
     from: { email: config.fromEmail, name: config.agencyName },
     subject: payload.subject,
     content: [
@@ -382,7 +428,7 @@ async function sendEmail(env, payload) {
     config.smtpUser &&
     config.smtpPass &&
     config.fromEmail &&
-    config.toEmail
+    config.toEmails.length
   );
 
   if (hasSmtpCreds) {
@@ -409,19 +455,19 @@ async function sendEmail(env, payload) {
 }
 function buildHtml(fd, atts, id, date, agency) {
   const q  = k => getField(fd, k);
-  const ex = (k, l) => fd.get(k) ? ` Â· <em style="color:#6C757D">${l} : ${fd.get(k)}</em>` : '';
+  const ex = (k, l) => fd.get(k) ? ` · <em style="color:#6C757D">${l} : ${fd.get(k)}</em>` : '';
 
   const rows = [
-    ['1',  'Objectif principal',              `${q('q1_objective')}${ex('q1_objective_other','PrÃ©cision')}`],
-    ['2',  'Site existant',                   `${q('q2_existing_site')}${fd.get('q2_existing_url') ? ` Â· <a href="${fd.get('q2_existing_url')}" style="color:#2574F0">${fd.get('q2_existing_url')}</a>` : ''}`],
+    ['1',  'Objectif principal',              `${q('q1_objective')}${ex('q1_objective_other','Précision')}`],
+    ['2',  'Site existant',                   `${q('q2_existing_site')}${fd.get('q2_existing_url') ? ` · <a href="${fd.get('q2_existing_url')}" style="color:#2574F0">${fd.get('q2_existing_url')}</a>` : ''}`],
     ['3',  'Type de site',                    `${q('q3_site_type')}${ex('q3_site_type_comment','Commentaire')}`],
     ['4',  'Pages indispensables',            `${q('q4_pages')}${ex('q4_pages_other','Autre')}`],
     ['5',  'Style visuel',                    `${q('q5_style')}${ex('q5_style_description','Description')}`],
-    ['6',  'Couleurs',                        `${q('q6_colors')}${ex('q6_colors_details','PrÃ©cisions')}`],
-    ['7',  'PrioritÃ©s',                       `${q('q7_priorities')}${ex('q7_priorities_other','Autre')}`],
-    ['8',  'Ã‰lÃ©ments disponibles',            q('q8_assets')],
+    ['6',  'Couleurs',                        `${q('q6_colors')}${ex('q6_colors_details','Précisions')}`],
+    ['7',  'Priorités',                       `${q('q7_priorities')}${ex('q7_priorities_other','Autre')}`],
+    ['8',  'Éléments disponibles',            q('q8_assets')],
     ['9',  'Attentes pour la maquette',       `<em>${q('q9_expectations')}</em>`],
-    ['10', 'DisponibilitÃ©',                   q('q10_readiness')],
+    ['10', 'Disponibilité',                   q('q10_readiness')],
   ].map(([n, l, v]) => `
     <div style="margin-bottom:12px;padding:16px;background:#F8F9FA;border-radius:10px;border-left:3px solid #2574F0">
       <p style="margin:0 0 6px;font-size:11px;font-weight:600;color:#6C757D;text-transform:uppercase;letter-spacing:.06em">${n}. ${l}</p>
@@ -429,7 +475,7 @@ function buildHtml(fd, atts, id, date, agency) {
     </div>`).join('');
 
   const filesHtml = atts.length
-    ? atts.map(a => `<div style="display:inline-block;margin:0 8px 8px 0;padding:8px 16px;background:#EEF4FF;border-radius:20px;font-size:13px;color:#2574F0;font-weight:500">ðŸ“Ž ${a.name} <span style="color:#92ABD8">(${formatSize(a.size)})</span></div>`).join('')
+    ? atts.map(a => `<div style="display:inline-block;margin:0 8px 8px 0;padding:8px 16px;background:#EEF4FF;border-radius:20px;font-size:13px;color:#2574F0;font-weight:500">📎 ${a.name} <span style="color:#92ABD8">(${formatSize(a.size)})</span></div>`).join('')
     : '<p style="color:#6C757D;font-size:13px;margin:0">Aucun fichier transmis.</p>';
 
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>
@@ -437,14 +483,14 @@ function buildHtml(fd, atts, id, date, agency) {
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#F0F2F5;padding:32px 16px"><tr><td align="center">
 <table width="100%" style="max-width:680px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08)">
   <tr><td style="background:linear-gradient(135deg,#1A5FD4,#2574F0,#4E93FF);padding:36px 40px">
-    <p style="margin:0 0 6px;color:rgba(255,255,255,.7);font-size:12px;font-weight:600;text-transform:uppercase">${agency} Â· Questionnaire de qualification</p>
-    <h1 style="margin:0 0 8px;color:#fff;font-size:24px;font-weight:800">ðŸŽ¯ Nouveau prospect â€” Demande de maquette</h1>
-    <p style="margin:0;color:rgba(255,255,255,.75);font-size:14px">ReÃ§u le ${date}</p>
+    <p style="margin:0 0 6px;color:rgba(255,255,255,.7);font-size:12px;font-weight:600;text-transform:uppercase">${agency} · Questionnaire de qualification</p>
+    <h1 style="margin:0 0 8px;color:#fff;font-size:24px;font-weight:800">🎯 Nouveau prospect — Demande de maquette</h1>
+    <p style="margin:0;color:rgba(255,255,255,.75);font-size:14px">Reçu le ${date}</p>
   </td></tr>
   <tr><td style="padding:36px 40px">
     <p style="margin:0 0 28px"><span style="background:#EEF4FF;color:#2574F0;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700">ID : ${id.slice(0,8).toUpperCase()}</span></p>
 
-    <h2 style="margin:0 0 16px;font-size:11px;font-weight:700;text-transform:uppercase;color:#2574F0;padding-bottom:10px;border-bottom:2px solid #EEF4FF">CoordonnÃ©es</h2>
+    <h2 style="margin:0 0 16px;font-size:11px;font-weight:700;text-transform:uppercase;color:#2574F0;padding-bottom:10px;border-bottom:2px solid #EEF4FF">Coordonnées</h2>
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px">
       <tr>
         <td width="50%" style="padding:0 8px 12px 0"><div style="background:#F8F9FA;padding:14px 16px;border-radius:10px"><p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#6C757D;text-transform:uppercase">Entreprise</p><p style="margin:0;font-size:15px;font-weight:600">${q('company_name')}</p></div></td>
@@ -452,21 +498,22 @@ function buildHtml(fd, atts, id, date, agency) {
       </tr>
       <tr>
         <td width="50%" style="padding:0 8px 0 0"><div style="background:#F8F9FA;padding:14px 16px;border-radius:10px"><p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#6C757D;text-transform:uppercase">Email</p><p style="margin:0;font-size:15px"><a href="mailto:${q('contact_email')}" style="color:#2574F0;text-decoration:none">${q('contact_email')}</a></p></div></td>
-        <td width="50%" style="padding:0 0 0 8px"><div style="background:#F8F9FA;padding:14px 16px;border-radius:10px"><p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#6C757D;text-transform:uppercase">TÃ©lÃ©phone</p><p style="margin:0;font-size:15px">${fd.get('contact_phone') || '<span style="color:#aaa">Non renseignÃ©</span>'}</p></div></td>
+        <td width="50%" style="padding:0 0 0 8px"><div style="background:#F8F9FA;padding:14px 16px;border-radius:10px"><p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#6C757D;text-transform:uppercase">Téléphone</p><p style="margin:0;font-size:15px">${fd.get('contact_phone') || '<span style="color:#aaa">Non renseigné</span>'}</p></div></td>
       </tr>
     </table>
+    <p style="margin:-16px 0 32px"><a href="mailto:${encodeURIComponent(fd.get('contact_email') || '')}?subject=${encodeURIComponent('Votre demande de maquette — ' + agency)}" style="display:inline-block;background:#2574F0;color:#fff;padding:12px 22px;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none">Répondre à ${q('contact_name')} →</a></p>
 
-    <h2 style="margin:0 0 16px;font-size:11px;font-weight:700;text-transform:uppercase;color:#2574F0;padding-bottom:10px;border-bottom:2px solid #EEF4FF">Niveau d'intÃ©rÃªt</h2>
+    <h2 style="margin:0 0 16px;font-size:11px;font-weight:700;text-transform:uppercase;color:#2574F0;padding-bottom:10px;border-bottom:2px solid #EEF4FF">Niveau d'intérêt</h2>
     <div style="margin-bottom:32px">${interestBadge(fd.get('q10_readiness'))}</div>
 
-    <h2 style="margin:0 0 16px;font-size:11px;font-weight:700;text-transform:uppercase;color:#2574F0;padding-bottom:10px;border-bottom:2px solid #EEF4FF">RÃ©ponses</h2>
+    <h2 style="margin:0 0 16px;font-size:11px;font-weight:700;text-transform:uppercase;color:#2574F0;padding-bottom:10px;border-bottom:2px solid #EEF4FF">Réponses</h2>
     ${rows}
 
     ${atts.length ? `<h2 style="margin:28px 0 16px;font-size:11px;font-weight:700;text-transform:uppercase;color:#2574F0;padding-bottom:10px;border-bottom:2px solid #EEF4FF">Fichiers (${atts.length})</h2>` : ''}
     ${filesHtml}
   </td></tr>
   <tr><td style="background:#F8F9FA;padding:20px 40px;border-top:1px solid #EAEAEA">
-    <p style="margin:0;font-size:12px;color:#9CA3AF"><strong style="color:#6C757D">ID :</strong> ${id} &nbsp;Â·&nbsp; <strong style="color:#6C757D">Date :</strong> ${date} &nbsp;Â·&nbsp; Source : ${agency}</p>
+    <p style="margin:0;font-size:12px;color:#9CA3AF"><strong style="color:#6C757D">ID :</strong> ${id} &nbsp;·&nbsp; <strong style="color:#6C757D">Date :</strong> ${date} &nbsp;·&nbsp; Source : ${agency}</p>
   </td></tr>
 </table></td></tr></table></body></html>`;
 }
@@ -474,44 +521,44 @@ function buildHtml(fd, atts, id, date, agency) {
 function buildText(fd, atts, id, date, agency) {
   const q  = k => getField(fd, k);
   const ex = (k, l) => fd.get(k) ? ` (${l} : ${fd.get(k)})` : '';
-  return `NOUVEAU PROSPECT â€” ${agency}
-${date} Â· ID : ${id}
+  return `NOUVEAU PROSPECT — ${agency}
+${date} · ID : ${id}
 
-COORDONNÃ‰ES
+COORDONNÉES
 Entreprise  : ${q('company_name')}
 Contact     : ${q('contact_name')}
 Email       : ${q('contact_email')}
-TÃ©lÃ©phone   : ${fd.get('contact_phone') || 'Non renseignÃ©'}
-Site actuel : ${fd.get('current_website') || 'Non renseignÃ©'}
+Téléphone   : ${fd.get('contact_phone') || 'Non renseigné'}
+Site actuel : ${fd.get('current_website') || 'Non renseigné'}
 
-NIVEAU D'INTÃ‰RÃŠT : ${q('q10_readiness')}
+NIVEAU D'INTÉRÊT : ${q('q10_readiness')}
 
-RÃ‰PONSES
-1.  Objectif      : ${q('q1_objective')}${ex('q1_objective_other','PrÃ©cision')}
+RÉPONSES
+1.  Objectif      : ${q('q1_objective')}${ex('q1_objective_other','Précision')}
 2.  Site existant : ${q('q2_existing_site')}${ex('q2_existing_url','URL')}
 3.  Type de site  : ${q('q3_site_type')}${ex('q3_site_type_comment','Commentaire')}
 4.  Pages         : ${q('q4_pages')}${ex('q4_pages_other','Autre')}
 5.  Style visuel  : ${q('q5_style')}${ex('q5_style_description','Description')}
-6.  Couleurs      : ${q('q6_colors')}${ex('q6_colors_details','PrÃ©cisions')}
-7.  PrioritÃ©s     : ${q('q7_priorities')}${ex('q7_priorities_other','Autre')}
-8.  Ã‰lÃ©ments      : ${q('q8_assets')}
+6.  Couleurs      : ${q('q6_colors')}${ex('q6_colors_details','Précisions')}
+7.  Priorités     : ${q('q7_priorities')}${ex('q7_priorities_other','Autre')}
+8.  Éléments      : ${q('q8_assets')}
 9.  Attentes      : ${q('q9_expectations')}
-10. DisponibilitÃ© : ${q('q10_readiness')}
+10. Disponibilité : ${q('q10_readiness')}
 
 FICHIERS (${atts.length})
 ${atts.length ? atts.map(a => `- ${a.name} (${formatSize(a.size)})`).join('\n') : 'Aucun.'}`;
 }
 
-// â”€â”€â”€ Handler /api/submit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Handler /api/submit ──────────────────────────────────────────────────────
 
 async function handleSubmit(request, env) {
   let fd;
   try { fd = await request.formData(); }
-  catch (_) { return Response.json({ success: false, error: 'DonnÃ©es invalides.' }, { status: 400 }); }
+  catch (_) { return Response.json({ success: false, error: 'Données invalides.' }, { status: 400 }); }
 
   // Honeypot
   if (getText(fd, 'website_url')) {
-    return Response.json({ success: false, error: 'Soumission rejetÃ©e.' }, { status: 400 });
+    return Response.json({ success: false, error: 'Soumission rejetée.' }, { status: 400 });
   }
 
   // Timing anti-spam
@@ -558,7 +605,7 @@ async function handleSubmit(request, env) {
   const agency = mailConfig.agencyName;
   const companyName = getText(fd, 'company_name') || 'Entreprise';
   const contactName = getText(fd, 'contact_name') || 'Contact';
-  const subject = `[Nouveau prospect maquette] ${companyName} â€“ ${contactName}`;
+  const subject = `[Nouveau prospect maquette] ${companyName} – ${contactName}`;
 
   try {
     await sendEmail(env, {
@@ -566,17 +613,19 @@ async function handleSubmit(request, env) {
       html:        buildHtml(fd, attachments, submissionId, date, agency),
       text:        buildText(fd, attachments, submissionId, date, agency),
       attachments,
+      messageId: submissionId,
     });
+    console.log(`[DEMANDE ${submissionId}] envoyée : ${companyName} – ${contactName} <${contactEmail}>`);
   } catch (err) {
     const errorId = crypto.randomUUID().slice(0, 8).toUpperCase();
-    console.error(`[MAIL ${errorId}]`, String(err?.message || err || 'unknown'));
-    return Response.json({ success: false, error: "Erreur lors de l'envoi. Veuillez rÃ©essayer." }, { status: 500 });
+    console.error(`[MAIL ${errorId}] ÉCHEC demande ${submissionId} : ${companyName} – ${contactName} <${contactEmail}>`, String(err?.message || err || 'unknown'));
+    return Response.json({ success: false, error: "Erreur lors de l'envoi. Veuillez réessayer." }, { status: 500 });
   }
 
   return Response.json({ success: true, submissionId });
 }
 
-// â”€â”€â”€ Entry point Worker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Entry point Worker ──────────────────────────────────────────────────────
 
 export default {
   async fetch(request, env, ctx) {
@@ -587,7 +636,7 @@ export default {
       return handleSubmit(request, env);
     }
 
-    // Tout le reste â†’ fichiers statiques (public/)
+    // Tout le reste → fichiers statiques (public/)
     return env.ASSETS.fetch(request);
   },
 };

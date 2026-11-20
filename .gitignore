@@ -3,3 +3,4 @@ uploads-temp/*
 !uploads-temp/.gitkeep
 .env
 .wrangler/
+.dev.vars

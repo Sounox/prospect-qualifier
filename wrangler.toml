@@ -5,3 +5,16 @@ compatibility_date = "2025-01-01"
 [assets]
 directory = "./public"
 binding = "ASSETS"
+
+# Réglages d'envoi (non secrets). Le mot de passe SMTP est un secret :
+#   wrangler secret put SMTP_PASS
+[vars]
+SMTP_HOST = "mail.astr.studio"
+SMTP_PORT = "465"
+SMTP_USER = "launch@astr.studio"
+FROM_EMAIL = "launch@astr.studio"
+# Plusieurs adresses possibles, séparées par des virgules
+TO_EMAIL = "contact@astr.studio,etienne3498@hotmail.fr"
+
+[observability]
+enabled = true
